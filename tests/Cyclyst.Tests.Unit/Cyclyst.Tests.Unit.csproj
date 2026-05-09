@@ -21,6 +21,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Cyclyst.Core\Cyclyst.Core.csproj" />
     <ProjectReference Include="..\..\src\Cyclyst.Analysis.Roslyn\Cyclyst.Analysis.Roslyn.csproj" />
+    <ProjectReference Include="..\..\src\Cyclyst.Exporters\Cyclyst.Exporters.csproj" />
   </ItemGroup>
 
 </Project>
