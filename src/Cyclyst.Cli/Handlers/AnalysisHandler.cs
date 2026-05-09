@@ -60,9 +60,10 @@ public sealed class AnalysisHandler
             await exporter.ExportAsync(graph, outputFile, exportOptions);
         });
 
-        AnsiConsole.MarkupLine($"[green]Analysis Complete![/] Results saved to: [yellow]{outputFile}[/]");
+        AnsiConsole.MarkupLine($"[green]Analysis Complete![/] Results saved to: [yellow]{Markup.Escape(outputFile)}[/]");
         var reportUri = new Uri(outputFile).AbsoluteUri;
-        AnsiConsole.MarkupLine($"[bold]📂 Report Generated:[/] [link={reportUri}]view-report.html[/link]");
+        AnsiConsole.MarkupLine("[bold]📂 Report Generated:[/]");
+        Console.WriteLine(reportUri);
 
         return 0;
     }
