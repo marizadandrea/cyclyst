@@ -10,3 +10,5 @@ Structure Audit: Identify "God Objects" or overly coupled namespaces that need r
 
 Exportable Graphs: Generate visualizations in formats like Mermaid.js, Graphviz (DOT), or interactive SVG.
 
+# Warnings
+This implementation will be done using IA free agents and therefore is not gurantee

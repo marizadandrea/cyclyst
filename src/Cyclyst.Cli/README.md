@@ -23,3 +23,16 @@ Example:
 dotnet run --project src/Cyclyst.Cli/Cyclyst.Cli.csproj -- analyze src/Cyclyst.sln --output report --exclude "Cyclyst.Tests*" --level Namespace
 ```
 
+
+
+# Default (HTML/SVG export)
+dotnet run -- analyze ./path/to/project.csproj
+
+# Explicit HTML/SVG export
+dotnet run -- analyze ./path/to/project.csproj --export-type HtmlSvg
+
+# Mermaid diagram export
+dotnet run -- analyze ./path/to/project.csproj --export-type Mermaid
+
+# Combined with other options
+dotnet run -- analyze ./path/to/project.csproj -x Mermaid -o ./reports -l Class

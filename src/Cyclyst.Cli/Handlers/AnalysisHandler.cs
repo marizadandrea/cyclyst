@@ -11,12 +11,13 @@ using Cyclyst.Core.Exporters;
 using Cyclyst.Core.Models;
 using Cyclyst.Exporters;
 using Cyclyst.Analysis.Roslyn;
+using Cyclyst.Cli.Commands;
 
 namespace Cyclyst.Cli.Handlers;
 
 public sealed class AnalysisHandler
 {
-    public async Task<int> RunAsync(string path, string outputFolder, IEnumerable<string> excludedNamespaces, GroupingLevel groupingLevel)
+    public async Task<int> RunAsync(string path, string outputFolder, IEnumerable<string> excludedNamespaces, GroupingLevel groupingLevel, ExportType exportType = ExportType.HtmlSvg)
     {
         ArgumentNullException.ThrowIfNull(path);
 
@@ -39,7 +40,14 @@ public sealed class AnalysisHandler
         finalOutputFolder = Path.GetFullPath(finalOutputFolder);
         Directory.CreateDirectory(finalOutputFolder);
 
-        var outputFile = Path.Combine(finalOutputFolder, "view-report.html");
+        var outputFileName = exportType switch
+        {
+            ExportType.HtmlSvg => "view-report.html",
+            ExportType.Mermaid => "dependency-graph.mmd",
+            _ => "view-report.html"
+        };
+
+        var outputFile = Path.Combine(finalOutputFolder, outputFileName);
 
         await AnsiConsole.Status().StartAsync("Loading Solution...", async statusContext =>
         {
@@ -48,8 +56,8 @@ public sealed class AnalysisHandler
             statusContext.Status("Detecting Cycles...");
             var cycleResults = new TarjanCycleDetector().DetectCycles(graph).ToList();
 
-            statusContext.Status("Writing HTML/SVG Report...");
-            var exporter = new HtmlSvgExporter();
+            statusContext.Status($"Writing {exportType} Report...");
+            var exporter = CreateExporter(exportType);
             var exportOptions = new ExportOptions
             {
                 Level = groupingLevel,
@@ -67,6 +75,13 @@ public sealed class AnalysisHandler
 
         return 0;
     }
+
+    private static IExporter CreateExporter(ExportType exportType) => exportType switch
+    {
+        ExportType.HtmlSvg => new HtmlSvgExporter(),
+        ExportType.Mermaid => new MermaidUmlExporter(),
+        _ => new HtmlSvgExporter()
+    };
 
     private static async Task<DependencyGraph> BuildDependencyGraphAsync(string entryPath, StatusContext statusContext)
     {
