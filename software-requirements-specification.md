@@ -14,9 +14,9 @@ The goal of this tool is to perform Static Analysis on C# source code or compile
   5. JSON (for custom front-end rendering)
 
 3. Functional Requirements (FR)
-FR-1 Assembly Parsing: The project must use Roslyn to walk the Syntax Tree of a provided solution.
-FR-2 Dependency Mapping	Identify using statements, constructor injections, and inheritance links.
-FR-3 Namespace Grouping	Logic to aggregate classes into their parent namespaces for high-level viewing.
-FR-4 Cycle Detection	Implement a Directed Graph algorithm to find strongly connected components.
-FR-5 CLI Interface	A command-line interface to trigger scans (e.g., analyze --path ./MyProj).
+- FR-1 Assembly Parsing: The project must use Roslyn to walk the Syntax Tree of a provided solution.
+- FR-2 Dependency Mapping	Identify using statements, constructor injections, and inheritance links.
+- FR-3 Namespace Grouping	Logic to aggregate classes into their parent namespaces for high-level viewing.
+- FR-4 Cycle Detection	Implement a Directed Graph algorithm to find strongly connected components.
+- FR-5 CLI Interface	A command-line interface to trigger scans (e.g., analyze --path ./MyProj).
 
