@@ -263,7 +263,7 @@ public sealed class HtmlSvgExporter : IExporter
         builder.AppendLine("  <meta charset=\"utf-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n  <title>Cyclyst Architecture Report</title>");
         builder.AppendLine("  <style>");
         builder.AppendLine("    body { font-family: Segoe UI, Arial, sans-serif; margin: 0; padding: 0; background: #f5f6fa; color: #1f2937; } ");
-        builder.AppendLine("    .container { display: grid; grid-template-columns: 320px 1fr; height: 100vh; overflow: hidden; } ");
+        builder.AppendLine("    .container { display: grid; grid-template-columns: 320px minmax(0, 1fr); height: 100vh; overflow: hidden; } ");
         builder.AppendLine("    .sidebar { background: #ffffff; border-right: 1px solid #e5e7eb; padding: 16px; overflow-y: auto; } ");
         builder.AppendLine("    .sidebar h2 { font-size: 1rem; margin-top: 0; } ");
         builder.AppendLine("    .cycle-item { padding: 10px; border: 1px solid #e5e7eb; margin-bottom: 10px; border-radius: 8px; cursor: pointer; background: #fafafa; transition: background .2s ease; } ");
@@ -273,8 +273,8 @@ public sealed class HtmlSvgExporter : IExporter
         builder.AppendLine("    .toolbar button { padding: 10px 14px; border: none; border-radius: 8px; background: #2563eb; color: white; cursor: pointer; } ");
         builder.AppendLine("    .toolbar button:hover { background: #1d4ed8; } ");
         builder.AppendLine("    .graph-panel { position: relative; background: #ffffff; overflow: auto; } ");
-        builder.AppendLine("    svg { width: 100%; height: 100%; } ");
-        builder.AppendLine("    .edge { fill: none; stroke: #999; stroke-width: 1.5; opacity: 0.85; } ");
+        builder.AppendLine("    svg { min-width: 1200px; min-height: 900px; width: auto; height: auto; display: block; } ");
+        builder.AppendLine("    .edge { fill: none; stroke: #6b7280; stroke-width: 1.5; stroke-linecap: round; opacity: 0.88; } ");
         builder.AppendLine("    .edge.namespace { stroke: #0000ff; opacity: 0.7; } ");
         builder.AppendLine("    .edge.cycle { stroke: #dc143c; stroke-width: 2.5; } ");
         builder.AppendLine("    .edge.highlighted { filter: drop-shadow(0 0 8px rgba(220, 20, 60, 0.55)); opacity: 1; } ");
@@ -311,35 +311,101 @@ function render() {
   const edges = graph.edges.filter(edge => nodeMap.has(edge.source) && nodeMap.has(edge.target));
 
   const grouped = [...new Set(nodes.map(node => node.group))];
-  const groupCounts = grouped.reduce((acc, group) => {
-    acc[group] = nodes.filter(node => node.group === group).length;
+
+  const measureText = (value) => {
+    const measure = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    measure.setAttribute('font-size', '12px');
+    measure.setAttribute('visibility', 'hidden');
+    measure.textContent = value;
+    svg.appendChild(measure);
+    const width = measure.getBBox().width;
+    svg.removeChild(measure);
+    return width;
+  };
+
+  const wrapText = (text, maxWidth) => {
+    const words = text.split(' ');
+    const lines = [];
+    let currentLine = '';
+
+    const appendLine = () => {
+      if (currentLine) {
+        lines.push(currentLine);
+        currentLine = '';
+      }
+    };
+
+    words.forEach(word => {
+      const testLine = currentLine ? `${currentLine} ${word}` : word;
+      const width = measureText(testLine);
+      if (width > maxWidth && currentLine) {
+        appendLine();
+        currentLine = word;
+      } else {
+        currentLine = testLine;
+      }
+    });
+
+    if (currentLine) {
+      lines.push(currentLine);
+    }
+
+    return lines.length ? lines : [''];
+  };
+
+  const sizedNodes = nodes.map(node => {
+    const lines = wrapText(node.label, 220);
+    const width = Math.max(180, Math.min(420, Math.max(...lines.map(line => measureText(line))) + 28));
+    const height = Math.max(42, 18 + lines.length * 18);
+    return { ...node, lines, width, height };
+  });
+
+  const columnWidths = grouped.map(group => {
+    const groupNodes = sizedNodes.filter(n => n.group === group);
+    return Math.max(220, Math.max(...groupNodes.map(n => n.width)) + 30);
+  });
+
+  const xOffsets = grouped.reduce((acc, group, index) => {
+    if (index === 0) {
+      acc[group] = 120;
+    } else {
+      const prevGroup = grouped[index - 1];
+      acc[group] = acc[prevGroup] + columnWidths[index - 1] + 40;
+    }
     return acc;
   }, {});
 
-  const positions = nodes.map((node, index) => {
+  const positions = sizedNodes.map(node => {
     const groupIndex = grouped.indexOf(node.group);
-    const groupNodes = nodes.filter(n => n.group === node.group);
+    const groupNodes = sizedNodes.filter(n => n.group === node.group);
     const nodeIndex = groupNodes.findIndex(n => n.id === node.id);
-    const x = 120 + groupIndex * 260;
-    const y = 80 + nodeIndex * 110;
-    return { ...node, x, y, width: 180, height: 50 };
+    const x = xOffsets[node.group];
+    const y = 80 + nodeIndex * (node.height + 40);
+    return { ...node, x, y };
   });
+
+  const maxX = Math.max(...positions.map(node => node.x + node.width)) + 180;
+  const maxY = Math.max(...positions.map(node => node.y + node.height)) + 120;
+  svg.setAttribute('viewBox', `0 0 ${maxX} ${maxY}`);
+  svg.setAttribute('preserveAspectRatio', 'xMinYMin meet');
+  svg.style.minWidth = `${maxX}px`;
+  svg.style.minHeight = `${maxY}px`;
 
   const positionById = new Map(positions.map(node => [node.id, node]));
 
   const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
   const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
   marker.setAttribute('id', 'arrow');
-  marker.setAttribute('markerWidth', '10');
-  marker.setAttribute('markerHeight', '10');
-  marker.setAttribute('refX', '10');
-  marker.setAttribute('refY', '5');
+  marker.setAttribute('markerWidth', '8');
+  marker.setAttribute('markerHeight', '8');
+  marker.setAttribute('refX', '8');
+  marker.setAttribute('refY', '4');
   marker.setAttribute('orient', 'auto');
   marker.setAttribute('markerUnits', 'strokeWidth');
-  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-  path.setAttribute('d', 'M0,0 L10,5 L0,10 Z');
-  path.setAttribute('fill', '#6b7280');
-  marker.appendChild(path);
+  const arrowPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  arrowPath.setAttribute('d', 'M0,0 L8,4 L0,8 Z');
+  arrowPath.setAttribute('fill', '#6b7280');
+  marker.appendChild(arrowPath);
   defs.appendChild(marker);
   svg.appendChild(defs);
 
@@ -348,13 +414,16 @@ function render() {
     const target = positionById.get(edge.target);
     if (!source || !target) return;
 
-    const line = document.createElementNS('http://www.w3.org/2000/svg', 'path');
     const x1 = source.x + source.width;
     const y1 = source.y + source.height / 2;
     const x2 = target.x;
     const y2 = target.y + target.height / 2;
-    const midX = x1 + Math.max(80, (x2 - x1) / 2);
-    line.setAttribute('d', `M${x1},${y1} C${midX},${y1} ${midX},${y2} ${x2},${y2}`);
+    const direction = x2 >= x1 ? 1 : -1;
+    const endX = x2 - (direction * 10);
+    const controlX = x1 + direction * Math.max(100, Math.abs(endX - x1) / 2);
+
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    line.setAttribute('d', `M${x1},${y1} C${controlX},${y1} ${controlX},${y2} ${endX},${y2}`);
     line.setAttribute('class', `edge ${edge.type} ${edge.isPartOfCycle ? 'cycle' : ''}`);
     line.setAttribute('stroke-width', edge.type === 'namespace' ? `${Math.min(1 + edge.weight, 8)}` : (edge.isPartOfCycle ? '2.5' : '1.5'));
     line.setAttribute('data-scc-id', edge.sccId);
@@ -382,8 +451,14 @@ function render() {
 
     const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
     text.setAttribute('x', '10');
-    text.setAttribute('y', '24');
-    text.textContent = node.label;
+    text.setAttribute('y', '18');
+    node.lines.forEach((lineText, index) => {
+      const tspan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+      tspan.setAttribute('x', '10');
+      tspan.setAttribute('dy', index === 0 ? '0' : '18');
+      tspan.textContent = lineText;
+      text.appendChild(tspan);
+    });
     group.appendChild(text);
 
     const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
