@@ -1,0 +1,1 @@
+/// Determines Class vs Namespace links
