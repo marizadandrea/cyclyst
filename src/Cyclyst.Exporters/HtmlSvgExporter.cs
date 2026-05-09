@@ -274,10 +274,11 @@ public sealed class HtmlSvgExporter : IExporter
         builder.AppendLine("    .toolbar button:hover { background: #1d4ed8; } ");
         builder.AppendLine("    .graph-panel { position: relative; background: #ffffff; overflow: auto; } ");
         builder.AppendLine("    svg { min-width: 1200px; min-height: 900px; width: auto; height: auto; display: block; } ");
-        builder.AppendLine("    .edge { fill: none; stroke: #6b7280; stroke-width: 1.5; stroke-linecap: round; opacity: 0.88; } ");
+        builder.AppendLine("    .edge { fill: none; stroke: #6b7280; stroke-width: 1.5; stroke-linecap: round; opacity: 0.88; color: #6b7280; } ");
         builder.AppendLine("    .edge.namespace { stroke: #0000ff; opacity: 0.7; } ");
         builder.AppendLine("    .edge.cycle { stroke: #dc143c; stroke-width: 2.5; } ");
         builder.AppendLine("    .edge.highlighted { filter: drop-shadow(0 0 8px rgba(220, 20, 60, 0.55)); opacity: 1; } ");
+        builder.AppendLine("    .edge.hovered { stroke: #111827; color: #111827; opacity: 1; filter: drop-shadow(0 0 6px rgba(17, 24, 39, 0.35)); } ");
         builder.AppendLine("    .node { cursor: pointer; } ");
         builder.AppendLine("    .node rect { fill: #ffffff; stroke: #6b7280; stroke-width: 1.5; rx: 10; ry: 10; } ");
         builder.AppendLine("    .node.namespace rect { fill: #eef2ff; stroke: #3b82f6; } ");
@@ -310,7 +311,23 @@ function render() {
   const nodeMap = new Map(nodes.map(node => [node.id, node]));
   const edges = graph.edges.filter(edge => nodeMap.has(edge.source) && nodeMap.has(edge.target));
 
-  const grouped = [...new Set(nodes.map(node => node.group))];
+  const dependencyCounts = new Map(nodes.map(node => [node.id, 0]));
+  edges.forEach(edge => {
+    dependencyCounts.set(edge.source, (dependencyCounts.get(edge.source) || 0) + 1);
+  });
+
+  const evaluatedNodes = nodes.map(node => ({
+    ...node,
+    dependencyCount: dependencyCounts.get(node.id) || 0
+  }));
+
+  const grouped = [...new Set(evaluatedNodes.map(node => node.group))]
+    .sort((leftGroup, rightGroup) => {
+      const leftCount = evaluatedNodes.filter(node => node.group === leftGroup).reduce((sum, node) => sum + node.dependencyCount, 0);
+      const rightCount = evaluatedNodes.filter(node => node.group === rightGroup).reduce((sum, node) => sum + node.dependencyCount, 0);
+      if (rightCount !== leftCount) return rightCount - leftCount;
+      return leftGroup.localeCompare(rightGroup);
+    });
 
   const measureText = (value) => {
     const measure = document.createElementNS('http://www.w3.org/2000/svg', 'text');
@@ -353,7 +370,7 @@ function render() {
     return lines.length ? lines : [''];
   };
 
-  const sizedNodes = nodes.map(node => {
+  const sizedNodes = evaluatedNodes.map(node => {
     const lines = wrapText(node.label, 220);
     const width = Math.max(180, Math.min(420, Math.max(...lines.map(line => measureText(line))) + 28));
     const height = Math.max(42, 18 + lines.length * 18);
@@ -375,13 +392,23 @@ function render() {
     return acc;
   }, {});
 
-  const positions = sizedNodes.map(node => {
-    const groupIndex = grouped.indexOf(node.group);
-    const groupNodes = sizedNodes.filter(n => n.group === node.group);
-    const nodeIndex = groupNodes.findIndex(n => n.id === node.id);
-    const x = xOffsets[node.group];
-    const y = 80 + nodeIndex * (node.height + 40);
-    return { ...node, x, y };
+  const nodesByGroup = new Map();
+  grouped.forEach(group => {
+    const groupNodes = sizedNodes
+      .filter(n => n.group === group)
+      .sort((left, right) => {
+        if (right.dependencyCount !== left.dependencyCount) return right.dependencyCount - left.dependencyCount;
+        return left.label.localeCompare(right.label);
+      });
+    nodesByGroup.set(group, groupNodes);
+  });
+
+  const positions = [];
+  nodesByGroup.forEach((groupNodes, group) => {
+    const x = xOffsets[group];
+    groupNodes.forEach((node, nodeIndex) => {
+      positions.push({ ...node, x, y: 80 + nodeIndex * (node.height + 40) });
+    });
   });
 
   const maxX = Math.max(...positions.map(node => node.x + node.width)) + 180;
@@ -403,8 +430,10 @@ function render() {
   marker.setAttribute('orient', 'auto');
   marker.setAttribute('markerUnits', 'strokeWidth');
   const arrowPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-  arrowPath.setAttribute('d', 'M0,0 L8,4 L0,8 Z');
-  arrowPath.setAttribute('fill', '#6b7280');
+  arrowPath.setAttribute('d', 'M0,0 L8,4 L0,8');
+  arrowPath.setAttribute('fill', 'none');
+  arrowPath.setAttribute('stroke', 'currentColor');
+  arrowPath.setAttribute('stroke-width', '1.5');
   marker.appendChild(arrowPath);
   defs.appendChild(marker);
   svg.appendChild(defs);
@@ -429,6 +458,9 @@ function render() {
     line.setAttribute('data-scc-id', edge.sccId);
     line.setAttribute('data-weight', String(edge.weight));
     line.setAttribute('marker-end', 'url(#arrow)');
+
+    line.addEventListener('mouseover', () => line.classList.add('hovered'));
+    line.addEventListener('mouseout', () => line.classList.remove('hovered'));
 
     const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
     title.textContent = edge.tooltip;
