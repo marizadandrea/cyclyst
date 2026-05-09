@@ -1,2 +1,0 @@
-2. Cyclyst.Engine.Roslyn
-This is where the AI agent will spend 80% of its time. It translates complex C# source code into the simple Models defined in Core. By isolating it, you make the project much easier to debug.
