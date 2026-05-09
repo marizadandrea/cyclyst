@@ -6,5 +6,5 @@ namespace Cyclyst.Core.Exporters;
 
 public interface ICycleReporter
 {
-    Task ReportAsync(IEnumerable<StronglyConnectedComponent> cycles, string outputPath);
+    Task ReportAsync(IEnumerable<CycleResult> cycles, string outputPath);
 }

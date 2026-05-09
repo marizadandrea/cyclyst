@@ -5,5 +5,5 @@ namespace Cyclyst.Core.Analysis;
 
 public interface ICycleDetector
 {
-    IEnumerable<StronglyConnectedComponent> DetectCycles(DependencyGraph graph);
+    IEnumerable<CycleResult> DetectCycles(DependencyGraph graph);
 }
