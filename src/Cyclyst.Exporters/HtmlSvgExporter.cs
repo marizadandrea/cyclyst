@@ -380,6 +380,7 @@ function dragNode(event) {
     group.setAttribute('transform', 'translate(' + x + ', ' + y + ')');
   }
   updateEdgesForNode(nodeId);
+  updateSvgCanvasSize();
 }
 
 function endDrag(event) {
@@ -412,6 +413,35 @@ function updateEdgesForNode(nodeId) {
     const controlX = x1 + direction * Math.max(100, Math.abs(endX - x1) / 2);
     path.setAttribute('d', `M${x1},${y1} C${controlX},${y1} ${controlX},${y2} ${endX},${y2}`);
   });
+}
+
+function getCanvasBounds(positions) {
+  if (!positions || positions.length === 0) {
+    return { minX: 0, minY: 0, maxX: 1200, maxY: 900 };
+  }
+
+  const minX = Math.min(...positions.map(node => node.x));
+  const minY = Math.min(...positions.map(node => node.y));
+  const maxX = Math.max(...positions.map(node => node.x + node.width));
+  const maxY = Math.max(...positions.map(node => node.y + node.height));
+
+  return { minX, minY, maxX, maxY };
+}
+
+function updateSvgCanvasSize(positions) {
+  const bounds = getCanvasBounds(positions || Object.values(state.nodePositions));
+  const marginX = 180;
+  const marginY = 120;
+  const minWidth = 1200;
+  const minHeight = 900;
+  const originX = Math.min(bounds.minX, 0);
+  const originY = Math.min(bounds.minY, 0);
+  const width = Math.max(bounds.maxX - originX + marginX, minWidth);
+  const height = Math.max(bounds.maxY - originY + marginY, minHeight);
+
+  svg.setAttribute('viewBox', `${originX} ${originY} ${width} ${height}`);
+  svg.style.minWidth = `${width}px`;
+  svg.style.minHeight = `${height}px`;
 }
 
 function render() {
@@ -539,12 +569,8 @@ function render() {
     };
   });
 
-  const maxX = Math.max(...positions.map(node => node.x + node.width)) + 180;
-  const maxY = Math.max(...positions.map(node => node.y + node.height)) + 120;
-  svg.setAttribute('viewBox', `0 0 ${maxX} ${maxY}`);
+  updateSvgCanvasSize(positions);
   svg.setAttribute('preserveAspectRatio', 'xMinYMin meet');
-  svg.style.minWidth = `${maxX}px`;
-  svg.style.minHeight = `${maxY}px`;
 
   const positionById = new Map(positions.map(node => [node.id, node]));
 
