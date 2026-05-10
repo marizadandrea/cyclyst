@@ -89,4 +89,24 @@ public class ExporterTests
         Assert.Contains("relation-inheritance", content, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("relation-implementation", content, StringComparison.OrdinalIgnoreCase);
     }
+
+    [Fact]
+    public async Task ExportAsync_CreatesDrawIoFileWithValidXml()
+    {
+        var graph = new DependencyGraph();
+        graph.Nodes.Add(new NodeMetadata("A", "Cyclyst.Core.A", ElementType.Class, null, "Cyclyst.Core"));
+        graph.Nodes.Add(new NodeMetadata("B", "Cyclyst.Core.B", ElementType.Class, null, "Cyclyst.Core"));
+        graph.Edges.Add(new EdgeMetadata("B", "A", DependencyType.Inheritance));
+
+        var outputPath = Path.Combine(Path.GetTempPath(), "cyclyst-export.drawio");
+
+        var exporter = new DrawIoExporter();
+        await exporter.ExportAsync(graph, outputPath, new ExportOptions { Level = GroupingLevel.Class });
+
+        var content = await File.ReadAllTextAsync(outputPath);
+        Assert.Contains("<![CDATA[", content, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("<mxGraphModel", content, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("endArrow=block", content, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Cyclyst.Core.A", content, StringComparison.OrdinalIgnoreCase);
+    }
 }

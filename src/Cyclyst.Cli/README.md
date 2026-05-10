@@ -34,5 +34,12 @@ dotnet run -- analyze ./path/to/project.csproj --export-type HtmlSvg
 # Mermaid diagram export
 dotnet run -- analyze ./path/to/project.csproj --export-type Mermaid
 
+# Draw.io export
+This generates a `.drawio` file that can be opened and edited in diagrams.net (draw.io).
+
+```bash
+dotnet run -- analyze ./path/to/project.csproj --export-type DrawIo
+```
+
 # Combined with other options
 dotnet run -- analyze ./path/to/project.csproj -x Mermaid -o ./reports -l Class

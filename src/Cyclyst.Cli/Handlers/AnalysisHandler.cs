@@ -44,6 +44,7 @@ public sealed class AnalysisHandler
         {
             ExportType.HtmlSvg => "view-report.html",
             ExportType.Mermaid => "dependency-graph.mmd",
+            ExportType.DrawIo => "dependency-graph.drawio",
             _ => "view-report.html"
         };
 
@@ -80,6 +81,7 @@ public sealed class AnalysisHandler
     {
         ExportType.HtmlSvg => new HtmlSvgExporter(),
         ExportType.Mermaid => new MermaidUmlExporter(),
+        ExportType.DrawIo => new DrawIoExporter(),
         _ => new HtmlSvgExporter()
     };
 

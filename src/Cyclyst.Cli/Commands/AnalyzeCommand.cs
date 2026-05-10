@@ -8,7 +8,8 @@ namespace Cyclyst.Cli.Commands;
 public enum ExportType
 {
     HtmlSvg,
-    Mermaid
+    Mermaid,
+    DrawIo
 }
 
 public static class AnalyzeCommandFactory
@@ -45,7 +46,7 @@ public static class AnalyzeCommandFactory
 
         var exportOption = new Option<ExportType>("--export-type")
         {
-            Description = "Export format: HtmlSvg or Mermaid",
+            Description = "Export format: HtmlSvg, Mermaid, or DrawIo",
             DefaultValueFactory = _ => ExportType.HtmlSvg
         };
         exportOption.Aliases.Add("-x");
