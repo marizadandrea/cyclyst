@@ -300,7 +300,7 @@ public sealed class HtmlSvgExporter : IExporter
         builder.AppendLine("    svg { min-width: 1200px; min-height: 900px; width: auto; height: auto; display: block; } ");
         builder.AppendLine("    .edge { fill: none; stroke: #6b7280; stroke-width: 1.5; stroke-linecap: round; opacity: 0.88; color: #6b7280; } ");
         builder.AppendLine("    .edge.namespace { stroke: #0000ff; opacity: 0.7; } ");
-        builder.AppendLine("    .edge.relation-inheritance { stroke-dasharray: none; } ");
+        builder.AppendLine("    .edge.relation-inheritance { stroke: #2563eb; stroke-width: 2; stroke-dasharray: none; } ");
         builder.AppendLine("    .edge.relation-implementation { stroke-dasharray: 6 4; } ");
         builder.AppendLine("    .edge.relation-abstract { stroke: #7c3aed; } ");
         builder.AppendLine("    .edge.cycle { stroke: #dc143c; stroke-width: 2.5; } ");
