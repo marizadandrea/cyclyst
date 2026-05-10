@@ -143,6 +143,19 @@ public class DependencyHarvester : CSharpSyntaxWalker
             return true;
         }
 
+        if (symbol.SpecialType == SpecialType.System_String ||
+            symbol.SpecialType == SpecialType.System_Boolean ||
+            symbol.SpecialType == SpecialType.System_Int32)
+        {
+            return true;
+        }
+
+        if (symbol.ContainingNamespace?.ToDisplayString().StartsWith("System") == true ||
+            symbol.ContainingNamespace?.ToDisplayString().StartsWith("Microsoft") == true)
+        {
+            return true;
+        }
+
         if (!_ignoreExternalDependencies)
         {
             return false;
