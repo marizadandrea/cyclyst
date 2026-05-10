@@ -6,5 +6,6 @@ public record NodeMetadata(
     ElementType Type,
     string? ParentId,
     string? Namespace = null,
+    bool IsAbstract = false,
     bool IsPartOfCycle = false,
     int SccId = 0);

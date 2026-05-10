@@ -1,0 +1,58 @@
+# Task Specification: Class Relationship Detection and Visualization
+
+## Objective
+
+Act as a Senior C# Developer. Your task is to extend our static analysis tool to detect class relationships. 
+Enhance the existing static analysis engine to detect and export structural relationships between classes. The system must distinguish between standard class inheritance, abstract class inheritance, and interface implementation.
+
+1. Core Logic: Relationship Extraction
+The analysis engine (likely using Roslyn / Microsoft.CodeAnalysis) must be updated to inspect BaseList syntax or ITypeSymbol properties.
+
+Relationship Categories:
+
+Inheritance: When a class derives from another non-abstract class.
+
+Abstract Inheritance: When a class derives from a class marked with the abstract modifier.
+
+Implementation: When a class or interface implements one or multiple interfaces.
+
+Metadata to Capture:
+
+Source Entity (the child/implementer).
+
+Target Entity (the parent/interface).
+
+Relationship Type (Inheritance vs. Implementation).
+
+
+2. Exporter Updates
+Mermaid Exporter
+Update the Mermaid generation logic to use standard Class Diagram syntax:
+
+Inheritance (Class/Abstract): Parent <|-- Child
+
+Implementation (Interface): Interface <|.. Class
+
+Note: If the Parent is an abstract class, ensure the label or style indicates it (e.g., class Parent <<Abstract>>).
+
+HTML/SVG Exporter
+
+Update the SVG rendering engine to visually differentiate the connectors:
+
+Solid Line + Hollow Arrowhead: Class/Abstract Inheritance.
+
+Dashed Line + Hollow Arrowhead: Interface Implementation.
+
+Color Coding (Optional): Use a specific CSS class for abstract connections (e.g., .relation-abstract) to allow distinct styling.
+
+3. Unit Test Scenarios
+Eensure the logic handles C#’s type system correctly.
+Simple Inheritance	Class B : A results in a "Direct Inheritance" link.
+Abstract Inheritance	Class B : AbstractA results in an
+Interface Implementation	Class A : IContract results in a "Realization/Implementation" link.
+Multiple Interfaces	Class A : I1, I2 results in two distinct implementation links.
+Hybrid Hierarchy	Class A : BaseClass, I1 results in one inheritance link and one implementation link.
+Interface Inheritance	Interface IChild : IParent results in an "Inheritance" link between interfaces.
+Deep Hierarchy	C : B and B : A correctly identifies both levels without skipping links.
+External Types	Classes inheriting from System.Object or external libraries should be filterable/ignored based on configuration.
+

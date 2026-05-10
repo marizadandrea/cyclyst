@@ -8,8 +8,10 @@ namespace Cyclyst.Analysis.Roslyn;
 
 public class RoslynSourceScanner : IScanner
 {
-public Task<DependencyGraph> ScanAsync(string sourceCode)
-{
+    public bool IgnoreExternalDependencies { get; init; }
+
+    public Task<DependencyGraph> ScanAsync(string sourceCode)
+    {
         var syntaxTree = CSharpSyntaxTree.ParseText(sourceCode);
 
         var compilation = CSharpCompilation.Create("TempAssembly")
@@ -21,7 +23,7 @@ public Task<DependencyGraph> ScanAsync(string sourceCode)
 
         var semanticModel = compilation.GetSemanticModel(syntaxTree);
 
-        var harvester = new DependencyHarvester(semanticModel);
+        var harvester = new DependencyHarvester(semanticModel, IgnoreExternalDependencies);
         harvester.Visit(syntaxTree.GetRoot());
 
         var graph = new DependencyGraph();

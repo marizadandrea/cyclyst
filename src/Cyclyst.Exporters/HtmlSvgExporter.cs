@@ -177,6 +177,7 @@ public sealed class HtmlSvgExporter : IExporter
                 edge.SccId,
                 edge.IsCritical,
                 "class",
+                GetEdgeRelation(edge, graph),
                 BuildEdgeTooltip(edge)))
             .ToList();
 
@@ -211,6 +212,7 @@ public sealed class HtmlSvgExporter : IExporter
                 group.Where(x => x.edge.IsPartOfCycle).Select(x => x.edge.SccId).FirstOrDefault(),
                 group.Any(x => x.edge.IsCritical),
                 "namespace",
+                "relation-namespace",
                 BuildNamespaceEdgeTooltip(group.Key.SourceNamespace, group.Key.TargetNamespace, group.Count())))
             .ToList();
 
@@ -236,6 +238,28 @@ public sealed class HtmlSvgExporter : IExporter
         => edge.IsPartOfCycle
             ? $"Cycle ID: {edge.SccId} | Weight: {edge.Weight}"
             : $"Weight: {edge.Weight}";
+
+    private static string GetEdgeRelation(EdgeMetadata edge, DependencyGraph graph)
+    {
+        if (edge.Relation == DependencyType.Implementation)
+        {
+            return "relation-implementation";
+        }
+
+        if (edge.Relation == DependencyType.Inheritance)
+        {
+            var target = graph.Nodes.FirstOrDefault(n => n.Id == edge.TargetId);
+            var relationClass = "relation-inheritance";
+            if (target?.IsAbstract == true)
+            {
+                relationClass += " relation-abstract";
+            }
+
+            return relationClass;
+        }
+
+        return string.Empty;
+    }
 
     private static string BuildNamespaceEdgeTooltip(string sourceNamespace, string targetNamespace, int weight)
         => $"Namespace dependency {sourceNamespace} → {targetNamespace} | Weight: {weight}";
@@ -276,6 +300,9 @@ public sealed class HtmlSvgExporter : IExporter
         builder.AppendLine("    svg { min-width: 1200px; min-height: 900px; width: auto; height: auto; display: block; } ");
         builder.AppendLine("    .edge { fill: none; stroke: #6b7280; stroke-width: 1.5; stroke-linecap: round; opacity: 0.88; color: #6b7280; } ");
         builder.AppendLine("    .edge.namespace { stroke: #0000ff; opacity: 0.7; } ");
+        builder.AppendLine("    .edge.relation-inheritance { stroke-dasharray: none; } ");
+        builder.AppendLine("    .edge.relation-implementation { stroke-dasharray: 6 4; } ");
+        builder.AppendLine("    .edge.relation-abstract { stroke: #7c3aed; } ");
         builder.AppendLine("    .edge.cycle { stroke: #dc143c; stroke-width: 2.5; } ");
         builder.AppendLine("    .edge.highlighted { filter: drop-shadow(0 0 8px rgba(220, 20, 60, 0.55)); opacity: 1; } ");
         builder.AppendLine("    .edge.hovered { stroke: #111827; color: #111827; opacity: 1; filter: drop-shadow(0 0 6px rgba(17, 24, 39, 0.35)); } ");
@@ -453,7 +480,7 @@ function render() {
 
     const line = document.createElementNS('http://www.w3.org/2000/svg', 'path');
     line.setAttribute('d', `M${x1},${y1} C${controlX},${y1} ${controlX},${y2} ${endX},${y2}`);
-    line.setAttribute('class', `edge ${edge.type} ${edge.isPartOfCycle ? 'cycle' : ''}`);
+    line.setAttribute('class', `edge ${edge.type} ${edge.relation} ${edge.isPartOfCycle ? 'cycle' : ''}`);
     line.setAttribute('stroke-width', edge.type === 'namespace' ? `${Math.min(1 + edge.weight, 8)}` : (edge.isPartOfCycle ? '2.5' : '1.5'));
     line.setAttribute('data-scc-id', edge.sccId);
     line.setAttribute('data-weight', String(edge.weight));
@@ -571,6 +598,7 @@ render();");
         int SccId,
         bool IsCritical,
         string Type,
+        string Relation,
         string Tooltip);
 
     private sealed record GraphView(

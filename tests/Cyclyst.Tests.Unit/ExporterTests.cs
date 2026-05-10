@@ -69,4 +69,24 @@ public class ExporterTests
         Assert.Contains("\"isPartOfCycle\":true", content, StringComparison.OrdinalIgnoreCase);
         Assert.Contains(".edge.cycle", content, StringComparison.OrdinalIgnoreCase);
     }
+
+    [Fact]
+    public async Task ExportAsync_IncludesInheritanceAndImplementationRelationStyles()
+    {
+        var graph = new DependencyGraph();
+        graph.Nodes.Add(new NodeMetadata("A", "Cyclyst.Core.A", ElementType.Class, null, "Cyclyst.Core"));
+        graph.Nodes.Add(new NodeMetadata("B", "Cyclyst.Core.B", ElementType.Class, null, "Cyclyst.Core"));
+        graph.Nodes.Add(new NodeMetadata("I", "Cyclyst.Core.IContract", ElementType.Interface, null, "Cyclyst.Core"));
+        graph.Edges.Add(new EdgeMetadata("B", "A", DependencyType.Inheritance));
+        graph.Edges.Add(new EdgeMetadata("A", "I", DependencyType.Implementation));
+
+        var outputPath = Path.Combine(Path.GetTempPath(), "cyclyst-export-relations.html");
+
+        var exporter = new HtmlSvgExporter();
+        await exporter.ExportAsync(graph, outputPath, new ExportOptions { Level = GroupingLevel.Class });
+
+        var content = await File.ReadAllTextAsync(outputPath);
+        Assert.Contains("relation-inheritance", content, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("relation-implementation", content, StringComparison.OrdinalIgnoreCase);
+    }
 }

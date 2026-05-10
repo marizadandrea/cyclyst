@@ -111,13 +111,18 @@ public sealed class MermaidUmlExporter : IExporter
         {
             var keyword = node.Type switch
             {
-                ElementType.Interface => "class",
+                ElementType.Interface => "interface",
                 _ => "class"
             };
 
             var cycleMark = node.IsPartOfCycle ? $" %%{{id: 'scc{node.SccId}', class: 'cycle'}}" : "";
             sb.AppendLine($"    {keyword} {EscapeIdentifier(node.Name)} {{{cycleMark}");
             sb.AppendLine("    }");
+
+            if (node.Type == ElementType.Class && node.IsAbstract)
+            {
+                sb.AppendLine($"    class {EscapeIdentifier(node.Name)} <<Abstract>>");
+            }
         }
 
         // Add relationships
