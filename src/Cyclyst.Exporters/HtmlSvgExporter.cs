@@ -319,15 +319,94 @@ public sealed class HtmlSvgExporter : IExporter
 
         builder.AppendLine("const graphPayload = ");
         builder.AppendLine(json + ";");
-        builder.AppendLine(@"const state = {
+        builder.AppendLine("""
+const state = {
   currentView: graphPayload.defaultView,
   selectedNamespace: null,
-  selectedCycle: null
+  selectedCycle: null,
+  nodePositions: {}
 };
 
 const svg = document.getElementById('graphCanvas');
 const cycleList = document.getElementById('cycleList');
 const toggleViewButton = document.getElementById('toggleViewButton');
+
+const dragState = {
+  activeNodeId: null,
+  startX: 0,
+  startY: 0,
+  originalX: 0,
+  originalY: 0
+};
+
+function getSvgCoordinates(event) {
+  const point = svg.createSVGPoint();
+  point.x = event.clientX;
+  point.y = event.clientY;
+  return point.matrixTransform(svg.getScreenCTM().inverse());
+}
+
+function startDrag(event, nodeId) {
+  if (event.button !== 0) return;
+  event.preventDefault();
+  svg.setPointerCapture(event.pointerId);
+  const position = getSvgCoordinates(event);
+  dragState.activeNodeId = nodeId;
+  dragState.startX = position.x;
+  dragState.startY = position.y;
+  const saved = state.nodePositions[nodeId];
+  dragState.originalX = saved ? saved.x : 0;
+  dragState.originalY = saved ? saved.y : 0;
+  const group = svg.querySelector('[data-id="' + nodeId + '"]');
+  if (group) {
+    group.classList.add('dragging');
+  }
+}
+
+function dragNode(event, nodeId) {
+  if (dragState.activeNodeId !== nodeId) return;
+  const position = getSvgCoordinates(event);
+  const x = dragState.originalX + (position.x - dragState.startX);
+  const y = dragState.originalY + (position.y - dragState.startY);
+  state.nodePositions[nodeId] = { ...state.nodePositions[nodeId], x, y };
+  const group = svg.querySelector('[data-id="' + nodeId + '"]');
+  if (group) {
+    group.setAttribute('transform', 'translate(' + x + ', ' + y + ')');
+  }
+  updateEdgesForNode(nodeId);
+}
+
+function endDrag(event) {
+  if (!dragState.activeNodeId) return;
+  const group = svg.querySelector('[data-id="' + dragState.activeNodeId + '"]');
+  if (group) {
+    group.classList.remove('dragging');
+  }
+  dragState.activeNodeId = null;
+  svg.releasePointerCapture(event.pointerId);
+}
+
+function updateEdgesForNode(nodeId) {
+  const node = state.nodePositions[nodeId];
+  if (!node) return;
+  const connectedEdges = svg.querySelectorAll('path.edge[data-source="' + nodeId + '"], path.edge[data-target="' + nodeId + '"]');
+  connectedEdges.forEach(path => {
+    const sourceId = path.getAttribute('data-source');
+    const targetId = path.getAttribute('data-target');
+    if (!sourceId || !targetId) return;
+    const source = state.nodePositions[sourceId];
+    const target = state.nodePositions[targetId];
+    if (!source || !target) return;
+    const x1 = source.x + source.width;
+    const y1 = source.y + source.height / 2;
+    const x2 = target.x;
+    const y2 = target.y + target.height / 2;
+    const direction = x2 >= x1 ? 1 : -1;
+    const endX = x2 - (direction * 10);
+    const controlX = x1 + direction * Math.max(100, Math.abs(endX - x1) / 2);
+    path.setAttribute('d', `M${x1},${y1} C${controlX},${y1} ${controlX},${y2} ${endX},${y2}`);
+  });
+}
 
 function render() {
   svg.innerHTML = '';
@@ -438,6 +517,22 @@ function render() {
     });
   });
 
+  positions.forEach(node => {
+    const saved = state.nodePositions[node.id];
+    if (saved) {
+      node.x = saved.x;
+      node.y = saved.y;
+      node.width = saved.width || node.width;
+      node.height = saved.height || node.height;
+    }
+    state.nodePositions[node.id] = {
+      x: node.x,
+      y: node.y,
+      width: node.width,
+      height: node.height
+    };
+  });
+
   const maxX = Math.max(...positions.map(node => node.x + node.width)) + 180;
   const maxY = Math.max(...positions.map(node => node.y + node.height)) + 120;
   svg.setAttribute('viewBox', `0 0 ${maxX} ${maxY}`);
@@ -484,6 +579,8 @@ function render() {
     line.setAttribute('stroke-width', edge.type === 'namespace' ? `${Math.min(1 + edge.weight, 8)}` : (edge.isPartOfCycle ? '2.5' : '1.5'));
     line.setAttribute('data-scc-id', edge.sccId);
     line.setAttribute('data-weight', String(edge.weight));
+    line.setAttribute('data-source', edge.source);
+    line.setAttribute('data-target', edge.target);
     line.setAttribute('marker-end', 'url(#arrow)');
 
     line.addEventListener('mouseover', () => line.classList.add('hovered'));
@@ -524,6 +621,10 @@ function render() {
     title.textContent = node.tooltip;
     group.appendChild(title);
 
+    group.addEventListener('pointerdown', event => startDrag(event, node.id));
+    group.addEventListener('pointermove', event => dragNode(event, node.id));
+    group.addEventListener('pointerup', endDrag);
+    group.addEventListener('pointerleave', endDrag);
     group.addEventListener('click', () => onNodeClicked(node));
     svg.appendChild(group);
   });
@@ -574,7 +675,8 @@ toggleViewButton.addEventListener('click', () => {
 });
 
 renderCycleList();
-render();");
+render();
+""");
         builder.AppendLine("</script>\n</body>\n</html>");
         return builder.ToString();
     }
