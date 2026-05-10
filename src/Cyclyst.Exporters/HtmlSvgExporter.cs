@@ -306,7 +306,8 @@ public sealed class HtmlSvgExporter : IExporter
         builder.AppendLine("    .edge.cycle { stroke: #dc143c; stroke-width: 2.5; } ");
         builder.AppendLine("    .edge.highlighted { filter: drop-shadow(0 0 8px rgba(220, 20, 60, 0.55)); opacity: 1; } ");
         builder.AppendLine("    .edge.hovered { stroke: #111827; color: #111827; opacity: 1; filter: drop-shadow(0 0 6px rgba(17, 24, 39, 0.35)); } ");
-        builder.AppendLine("    .node { cursor: pointer; } ");
+        builder.AppendLine("    .node { cursor: grab; pointer-events: all; } ");
+        builder.AppendLine("    .node.dragging rect { cursor: grabbing; opacity: 0.85; } ");
         builder.AppendLine("    .node rect { fill: #ffffff; stroke: #6b7280; stroke-width: 1.5; rx: 10; ry: 10; } ");
         builder.AppendLine("    .node.namespace rect { fill: #eef2ff; stroke: #3b82f6; } ");
         builder.AppendLine("    .node.cycle rect { fill: #fee2e2; stroke: #dc2626; stroke-width: 2; } ");
@@ -339,6 +340,10 @@ const dragState = {
   originalY: 0
 };
 
+svg.addEventListener('pointermove', dragNode);
+svg.addEventListener('pointerup', endDrag);
+svg.addEventListener('pointerleave', endDrag);
+
 function getSvgCoordinates(event) {
   const point = svg.createSVGPoint();
   point.x = event.clientX;
@@ -363,11 +368,12 @@ function startDrag(event, nodeId) {
   }
 }
 
-function dragNode(event, nodeId) {
-  if (dragState.activeNodeId !== nodeId) return;
+function dragNode(event) {
+  if (!dragState.activeNodeId) return;
   const position = getSvgCoordinates(event);
   const x = dragState.originalX + (position.x - dragState.startX);
   const y = dragState.originalY + (position.y - dragState.startY);
+  const nodeId = dragState.activeNodeId;
   state.nodePositions[nodeId] = { ...state.nodePositions[nodeId], x, y };
   const group = svg.querySelector('[data-id="' + nodeId + '"]');
   if (group) {
@@ -622,9 +628,6 @@ function render() {
     group.appendChild(title);
 
     group.addEventListener('pointerdown', event => startDrag(event, node.id));
-    group.addEventListener('pointermove', event => dragNode(event, node.id));
-    group.addEventListener('pointerup', endDrag);
-    group.addEventListener('pointerleave', endDrag);
     group.addEventListener('click', () => onNodeClicked(node));
     svg.appendChild(group);
   });
