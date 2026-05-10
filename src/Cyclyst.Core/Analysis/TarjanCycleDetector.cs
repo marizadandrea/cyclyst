@@ -16,7 +16,10 @@ public sealed class TarjanCycleDetector : ICycleDetector
             .Distinct()
             .ToList();
 
-        var metadataById = graph.Nodes.ToDictionary(n => n.Id, n => n);
+        var metadataById = graph.Nodes
+            .GroupBy(n => n.Id)
+            .Select(group => ChooseRepresentativeNode(group))
+            .ToDictionary(n => n.Id, n => n);
         var adjacency = graph.GetAdjacencyList();
         var indices = new Dictionary<string, int>();
         var lowlink = new Dictionary<string, int>();
@@ -120,6 +123,15 @@ public sealed class TarjanCycleDetector : ICycleDetector
         return nodeIds.Any(nodeId => metadataById.TryGetValue(nodeId, out var metadata) && metadata.Type == ElementType.Namespace)
             ? CycleType.Namespace
             : CycleType.Class;
+    }
+
+    private static NodeMetadata ChooseRepresentativeNode(IEnumerable<NodeMetadata> nodes)
+    {
+        return nodes
+            .OrderByDescending(n => n.IsAbstract)
+            .ThenByDescending(n => n.Type == ElementType.Interface)
+            .ThenByDescending(n => !string.IsNullOrWhiteSpace(n.Namespace))
+            .First();
     }
 
     private sealed class Frame

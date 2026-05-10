@@ -146,7 +146,7 @@ public sealed class AnalysisHandler
 
                 foreach (var node in harvester.Nodes)
                 {
-                    graph.Nodes.Add(node);
+                    graph.AddOrUpdateNode(node);
                 }
 
                 foreach (var edge in harvester.Edges)

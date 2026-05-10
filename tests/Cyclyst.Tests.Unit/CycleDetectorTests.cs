@@ -77,6 +77,20 @@ public class CycleDetectorTests
     }
 
     [Fact]
+    public void DetectCycles_HandlesDuplicateNodeIdsWithoutThrowing()
+    {
+        var graph = new DependencyGraph();
+        graph.Nodes.Add(new NodeMetadata("A", "A", ElementType.Class, null));
+        graph.Nodes.Add(new NodeMetadata("A", "A", ElementType.Class, null, "", true));
+        graph.Edges.Add(new EdgeMetadata("A", "A", DependencyType.MethodParameter));
+
+        var cycles = new TarjanCycleDetector().DetectCycles(graph).ToList();
+
+        Assert.Single(cycles);
+        Assert.Equal(new[] { "A" }, cycles[0].NodeIds);
+    }
+
+    [Fact]
     public async Task DetectCycles_WithRoslynScanner_FindsClassCycleFromSourceCode()
     {
         var sourceCode = @"
