@@ -316,7 +316,7 @@ public sealed class HtmlSvgExporter : IExporter
         builder.AppendLine("    .label { font-size: 0.95rem; margin-bottom: 8px; } ");
         builder.AppendLine("    @keyframes pulse { from { filter: drop-shadow(0 0 0 rgba(220, 20, 60, 0.2)); } to { filter: drop-shadow(0 0 16px rgba(220, 20, 60, 0.45)); } } ");
         builder.AppendLine("  </style>\n</head>");
-        builder.AppendLine("<body>\n<div class=\"container\">\n  <section class=\"sidebar\">\n    <div class=\"toolbar\">\n      <button id=\"toggleViewButton\">Toggle View</button>\n    </div>\n    <div class=\"label\">Detected cycles</div>\n    <div id=\"cycleList\"></div>\n  </section>\n  <section class=\"graph-panel\">\n    <svg id=\"graphCanvas\" viewBox=\"0 0 1200 900\"></svg>\n  </section>\n</div>\n<script>");
+        builder.AppendLine("<body>\n<div class=\"container\">\n  <section class=\"sidebar\">\n    <div class=\"toolbar\">\n      <button id=\"toggleViewButton\">Toggle View</button>\n      <button id=\"saveLayoutButton\">Save Layout</button>\n      <button id=\"exportLayoutButton\">Export Layout</button>\n      <button id=\"importLayoutButton\">Import Layout</button>\n      <button id=\"resetLayoutButton\">Reset Layout</button>\n      <input id=\"importLayoutInput\" type=\"file\" accept=\".json\" style=\"display:none\" />\n    </div>\n    <div class=\"label\">Detected cycles</div>\n    <div id=\"cycleList\"></div>\n  </section>\n  <section class=\"graph-panel\">\n    <svg id=\"graphCanvas\" viewBox=\"0 0 1200 900\"></svg>\n  </section>\n</div>\n<script>");
 
         builder.AppendLine("const graphPayload = ");
         builder.AppendLine(json + ";");
@@ -331,6 +331,11 @@ const state = {
 const svg = document.getElementById('graphCanvas');
 const cycleList = document.getElementById('cycleList');
 const toggleViewButton = document.getElementById('toggleViewButton');
+const saveLayoutButton = document.getElementById('saveLayoutButton');
+const exportLayoutButton = document.getElementById('exportLayoutButton');
+const importLayoutButton = document.getElementById('importLayoutButton');
+const resetLayoutButton = document.getElementById('resetLayoutButton');
+const importLayoutInput = document.getElementById('importLayoutInput');
 
 const dragState = {
   activeNodeId: null,
@@ -391,6 +396,89 @@ function endDrag(event) {
   }
   dragState.activeNodeId = null;
   svg.releasePointerCapture(event.pointerId);
+}
+
+function computeLayoutKey() {
+  const str = JSON.stringify(graphPayload);
+  let hash = 5381;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) + hash) + str.charCodeAt(i);
+  }
+  return 'cyclyst-layout-' + (hash >>> 0);
+}
+
+function saveLayout() {
+  try {
+    const key = computeLayoutKey();
+    localStorage.setItem(key, JSON.stringify(state.nodePositions));
+    console.log('Layout saved to', key);
+  } catch (e) {
+    console.warn('Failed to save layout', e);
+  }
+}
+
+function loadLayout() {
+  try {
+    const key = computeLayoutKey();
+    const raw = localStorage.getItem(key);
+    if (!raw) return false;
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object') {
+      state.nodePositions = parsed;
+      console.log('Layout loaded from', key);
+      return true;
+    }
+  } catch (e) {
+    console.warn('Failed to load layout', e);
+  }
+  return false;
+}
+
+function exportLayout() {
+  try {
+    const key = computeLayoutKey();
+    const data = JSON.stringify(state.nodePositions, null, 2);
+    const blob = new Blob([data], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${key}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    console.warn('Failed to export layout', e);
+  }
+}
+
+function importLayoutFile(file) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const parsed = JSON.parse(reader.result);
+      if (parsed && typeof parsed === 'object') {
+        state.nodePositions = parsed;
+        saveLayout();
+        render();
+      }
+    } catch (e) {
+      console.warn('Invalid layout file', e);
+    }
+  };
+  reader.readAsText(file);
+}
+
+function resetLayout() {
+  try {
+    const key = computeLayoutKey();
+    localStorage.removeItem(key);
+    state.nodePositions = {};
+    render();
+    console.log('Layout reset for', key);
+  } catch (e) {
+    console.warn('Failed to reset layout', e);
+  }
 }
 
 function updateEdgesForNode(nodeId) {
@@ -703,8 +791,23 @@ toggleViewButton.addEventListener('click', () => {
   render();
 });
 
+// wire buttons and load saved layout
+saveLayoutButton.addEventListener('click', () => { saveLayout(); });
+exportLayoutButton.addEventListener('click', () => { exportLayout(); });
+importLayoutButton.addEventListener('click', () => { importLayoutInput.click(); });
+resetLayoutButton.addEventListener('click', () => { resetLayout(); });
+importLayoutInput.addEventListener('change', (ev) => {
+  const files = ev.target.files || ev.srcElement.files;
+  if (files && files.length) importLayoutFile(files[0]);
+});
+
+try { loadLayout(); } catch (e) { /* ignore */ }
+
 renderCycleList();
 render();
+
+// auto-save on pointerup (when a drag ends)
+svg.addEventListener('pointerup', (e) => { saveLayout(); });
 """);
         builder.AppendLine("</script>\n</body>\n</html>");
         return builder.ToString();
