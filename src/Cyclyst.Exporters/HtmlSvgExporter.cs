@@ -241,24 +241,20 @@ public sealed class HtmlSvgExporter : IExporter
 
     private static string GetEdgeRelation(EdgeMetadata edge, DependencyGraph graph)
     {
+        var target = graph.Nodes.FirstOrDefault(n => n.Id == edge.TargetId);
+        var targetIsInterface = target?.Type == ElementType.Interface;
+
         if (edge.Relation == DependencyType.Implementation)
         {
-            return "relation-implementation";
+            return "relation-dependency-interface";
         }
 
         if (edge.Relation == DependencyType.Inheritance)
         {
-            var target = graph.Nodes.FirstOrDefault(n => n.Id == edge.TargetId);
-            var relationClass = "relation-inheritance";
-            if (target?.IsAbstract == true)
-            {
-                relationClass += " relation-abstract";
-            }
-
-            return relationClass;
+            return targetIsInterface ? "relation-inheritance-interface" : "relation-inheritance-class";
         }
 
-        return string.Empty;
+        return targetIsInterface ? "relation-dependency-interface" : "relation-dependency-class";
     }
 
     private static string BuildNamespaceEdgeTooltip(string sourceNamespace, string targetNamespace, int weight)
@@ -298,11 +294,12 @@ public sealed class HtmlSvgExporter : IExporter
         builder.AppendLine("    .toolbar button:hover { background: #1d4ed8; } ");
         builder.AppendLine("    .graph-panel { position: relative; background: #ffffff; overflow: auto; } ");
         builder.AppendLine("    svg { min-width: 1200px; min-height: 900px; width: auto; height: auto; display: block; } ");
-        builder.AppendLine("    .edge { fill: none; stroke: #6b7280; stroke-width: 1.5; stroke-linecap: round; opacity: 0.88; color: #6b7280; } ");
+        builder.AppendLine("    .edge { fill: none; stroke: #111827; stroke-width: 1.5; stroke-linecap: round; opacity: 0.88; color: #111827; } ");
         builder.AppendLine("    .edge.namespace { stroke: #0000ff; opacity: 0.7; } ");
-        builder.AppendLine("    .edge.relation-inheritance { stroke: #2563eb; stroke-width: 2; stroke-dasharray: none; } ");
-        builder.AppendLine("    .edge.relation-implementation { stroke-dasharray: 6 4; } ");
-        builder.AppendLine("    .edge.relation-abstract { stroke: #7c3aed; } ");
+        builder.AppendLine("    .edge.relation-dependency-class { stroke: #111827; stroke-dasharray: none; } ");
+        builder.AppendLine("    .edge.relation-dependency-interface { stroke: #111827; stroke-dasharray: 4 3; } ");
+        builder.AppendLine("    .edge.relation-inheritance-class { stroke: #111827; stroke-dasharray: none; } ");
+        builder.AppendLine("    .edge.relation-inheritance-interface { stroke: #111827; stroke-dasharray: 4 3; } ");
         builder.AppendLine("    .edge.cycle { stroke: #dc143c; stroke-width: 2.5; } ");
         builder.AppendLine("    .edge.highlighted { filter: drop-shadow(0 0 8px rgba(220, 20, 60, 0.55)); opacity: 1; } ");
         builder.AppendLine("    .edge.hovered { stroke: #111827; color: #111827; opacity: 1; filter: drop-shadow(0 0 6px rgba(17, 24, 39, 0.35)); } ");
@@ -663,21 +660,38 @@ function render() {
   const positionById = new Map(positions.map(node => [node.id, node]));
 
   const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
-  const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
-  marker.setAttribute('id', 'arrow');
-  marker.setAttribute('markerWidth', '8');
-  marker.setAttribute('markerHeight', '8');
-  marker.setAttribute('refX', '8');
-  marker.setAttribute('refY', '4');
-  marker.setAttribute('orient', 'auto');
-  marker.setAttribute('markerUnits', 'strokeWidth');
-  const arrowPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-  arrowPath.setAttribute('d', 'M0,0 L8,4 L0,8');
-  arrowPath.setAttribute('fill', 'none');
-  arrowPath.setAttribute('stroke', 'currentColor');
-  arrowPath.setAttribute('stroke-width', '1.5');
-  marker.appendChild(arrowPath);
-  defs.appendChild(marker);
+  const openMarker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+  openMarker.setAttribute('id', 'arrow-open');
+  openMarker.setAttribute('markerWidth', '8');
+  openMarker.setAttribute('markerHeight', '8');
+  openMarker.setAttribute('refX', '8');
+  openMarker.setAttribute('refY', '4');
+  openMarker.setAttribute('orient', 'auto');
+  openMarker.setAttribute('markerUnits', 'strokeWidth');
+  const openArrowPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  openArrowPath.setAttribute('d', 'M0,0 L8,4 L0,8');
+  openArrowPath.setAttribute('fill', 'none');
+  openArrowPath.setAttribute('stroke', 'currentColor');
+  openArrowPath.setAttribute('stroke-width', '1.5');
+  openMarker.appendChild(openArrowPath);
+  defs.appendChild(openMarker);
+
+  const filledMarker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+  filledMarker.setAttribute('id', 'arrow-filled');
+  filledMarker.setAttribute('markerWidth', '8');
+  filledMarker.setAttribute('markerHeight', '8');
+  filledMarker.setAttribute('refX', '8');
+  filledMarker.setAttribute('refY', '4');
+  filledMarker.setAttribute('orient', 'auto');
+  filledMarker.setAttribute('markerUnits', 'strokeWidth');
+  const filledArrowPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  filledArrowPath.setAttribute('d', 'M0,0 L8,4 L0,8 Z');
+  filledArrowPath.setAttribute('fill', 'none');
+  filledArrowPath.setAttribute('stroke', 'currentColor');
+  filledArrowPath.setAttribute('stroke-width', '1.5');
+  filledMarker.appendChild(filledArrowPath);
+  defs.appendChild(filledMarker);
+
   svg.appendChild(defs);
 
   edges.forEach(edge => {
@@ -701,7 +715,8 @@ function render() {
     line.setAttribute('data-weight', String(edge.weight));
     line.setAttribute('data-source', edge.source);
     line.setAttribute('data-target', edge.target);
-    line.setAttribute('marker-end', 'url(#arrow)');
+    const markerId = edge.relation.startsWith('relation-inheritance') ? 'arrow-filled' : 'arrow-open';
+    line.setAttribute('marker-end', `url(#${markerId})`);
 
     line.addEventListener('mouseover', () => line.classList.add('hovered'));
     line.addEventListener('mouseout', () => line.classList.remove('hovered'));
