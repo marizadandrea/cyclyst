@@ -494,7 +494,16 @@ function updateEdgesForNode(nodeId) {
     const x1 = source.x + source.width;
     const y1 = source.y + source.height / 2;
     const x2 = target.x;
-    const y2 = target.y + target.height / 2;
+    
+    // Position arrows at different points on target box based on relationship type
+    const relationClass = path.getAttribute('class');
+    let y2;
+    if (relationClass.includes('relation-inheritance')) {
+      y2 = target.y + (target.height * 0.15); // Top area for inheritance
+    } else {
+      y2 = target.y + (target.height * 0.85); // Bottom area for dependencies
+    }
+    
     const direction = x2 >= x1 ? 1 : -1;
     const endX = x2 - (direction * 10);
     const controlX = x1 + direction * Math.max(100, Math.abs(endX - x1) / 2);
@@ -704,7 +713,16 @@ function render() {
     const x1 = source.x + source.width;
     const y1 = source.y + source.height / 2;
     const x2 = target.x;
-    const y2 = target.y + target.height / 2;
+    
+    // Position arrows at different points on target box based on relationship type
+    // Inheritance arrows arrive at the top, dependencies at the bottom
+    let y2;
+    if (edge.relation.startsWith('relation-inheritance')) {
+      y2 = target.y + (target.height * 0.15); // Top area for inheritance
+    } else {
+      y2 = target.y + (target.height * 0.85); // Bottom area for dependencies
+    }
+    
     const direction = x2 >= x1 ? 1 : -1;
     const endX = x2 - (direction * 10);
     const controlX = x1 + direction * Math.max(100, Math.abs(endX - x1) / 2);
