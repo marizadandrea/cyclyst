@@ -90,4 +90,40 @@ public class A : System.Object { }
         Assert.DoesNotContain(graph.Nodes, n => n.Id == "System.Object");
         Assert.DoesNotContain(graph.Edges, e => e.TargetId == "System.Object");
     }
+
+    [Fact]
+    public async Task Should_Detect_Property_Dependencies_Between_Classes()
+    {
+        var sourceCode = @"
+public class ClassA {
+    public ClassB Dependency { get; set; }
+}
+public class ClassB { }
+";
+        var scanner = new RoslynSourceScanner();
+
+        var graph = await scanner.ScanAsync(sourceCode);
+
+        Assert.Contains(graph.Nodes, n => n.Id == "ClassA");
+        Assert.Contains(graph.Nodes, n => n.Id == "ClassB");
+        Assert.Contains(graph.Edges, e => e.SourceId == "ClassA" && e.TargetId == "ClassB" && e.Relation == DependencyType.Property);
+    }
+
+    [Fact]
+    public async Task Should_Detect_Field_Dependencies_Between_Classes()
+    {
+        var sourceCode = @"
+public class ClassA {
+    private ClassB _dependency;
+}
+public class ClassB { }
+";
+        var scanner = new RoslynSourceScanner();
+
+        var graph = await scanner.ScanAsync(sourceCode);
+
+        Assert.Contains(graph.Nodes, n => n.Id == "ClassA");
+        Assert.Contains(graph.Nodes, n => n.Id == "ClassB");
+        Assert.Contains(graph.Edges, e => e.SourceId == "ClassA" && e.TargetId == "ClassB" && e.Relation == DependencyType.Field);
+    }
 }
