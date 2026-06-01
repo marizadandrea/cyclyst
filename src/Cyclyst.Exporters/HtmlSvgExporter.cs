@@ -244,9 +244,10 @@ public sealed class HtmlSvgExporter : IExporter
         var target = graph.Nodes.FirstOrDefault(n => n.Id == edge.TargetId);
         var targetIsInterface = target?.Type == ElementType.Interface;
 
+        // Implementation of an interface is a form of inheritance
         if (edge.Relation == DependencyType.Implementation)
         {
-            return "relation-dependency-interface";
+            return "relation-inheritance-interface";
         }
 
         if (edge.Relation == DependencyType.Inheritance)
@@ -254,6 +255,7 @@ public sealed class HtmlSvgExporter : IExporter
             return targetIsInterface ? "relation-inheritance-interface" : "relation-inheritance-class";
         }
 
+        // All other dependency types (Field, Property, MethodParameter, LocalVariable) are dependencies
         return targetIsInterface ? "relation-dependency-interface" : "relation-dependency-class";
     }
 

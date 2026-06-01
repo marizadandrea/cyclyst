@@ -128,7 +128,9 @@ public class DependencyHarvester : CSharpSyntaxWalker
         }
 
         Edges.Add(new EdgeMetadata(sourceId, targetId, dependencyType));
-        AddOrUpdateNode(new NodeMetadata(targetId, symbol?.Name ?? syntax.ToString(), ElementType.Class, null, symbol?.ContainingNamespace?.ToDisplayString()));
+        var elementType = symbol?.TypeKind == TypeKind.Interface ? ElementType.Interface : ElementType.Class;
+        var isAbstract = symbol?.IsAbstract == true;
+        AddOrUpdateNode(new NodeMetadata(targetId, symbol?.Name ?? syntax.ToString(), elementType, null, symbol?.ContainingNamespace?.ToDisplayString(), isAbstract));
     }
 
     private bool ShouldSkipDependency(ITypeSymbol? symbol, string targetId)
