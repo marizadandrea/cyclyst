@@ -133,24 +133,22 @@ public sealed class DrawIoExporter : IExporter
         var targetIsInterface = targetNode?.Type == ElementType.Interface;
         var baseStyle = "edgeStyle=orthogonalEdgeStyle;";
         var strokeColor = "strokeColor=#111827;";
+        var dashStyle = targetIsInterface ? "dashed=1;" : "";
 
         // Implementation of an interface is a form of inheritance
         if (relation == DependencyType.Implementation)
         {
-            var dashStyle = "dashed=1;";
-            return baseStyle + "endArrow=block;endFill=0;" + dashStyle + strokeColor;
+            return baseStyle + "endArrow=block;endFill=0;dashed=1;" + strokeColor;
         }
 
         // Inheritance relationships use block arrows
         if (relation == DependencyType.Inheritance)
         {
-            var dashStyle = targetIsInterface ? "dashed=1;" : "";
             return baseStyle + "endArrow=block;endFill=0;" + dashStyle + strokeColor;
         }
 
-        // All other dependency types (Field, Property, MethodParameter, LocalVariable) have no arrow
-        var dependencyDashStyle = targetIsInterface ? "dashed=1;" : "";
-        return baseStyle + "endArrow=none;" + dependencyDashStyle + strokeColor;
+        // All other dependency types (Field, Property, MethodParameter, LocalVariable) use open arrows
+        return baseStyle + "endArrow=open;endFill=0;" + dashStyle + strokeColor;
     }
 
     private static string EscapeXml(string text)
