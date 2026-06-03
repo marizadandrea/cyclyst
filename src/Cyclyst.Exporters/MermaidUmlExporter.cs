@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.RegularExpressions;
 using Cyclyst.Core.Analysis;
 using Cyclyst.Core.Exporters;
 using Cyclyst.Core.Models;
@@ -74,31 +75,58 @@ public sealed class MermaidUmlExporter : IExporter
         }
     }
 
-    private static DependencyGraph FilterGraph(DependencyGraph graph, List<string> excludedNamespaces)
+    private static DependencyGraph FilterGraph(DependencyGraph graph, List<string>? excludedNamespaces)
     {
-        if (excludedNamespaces == null || excludedNamespaces.Count == 0)
-        {
-            return graph;
-        }
+        excludedNamespaces ??= new List<string>();
+        var excludedMatchers = excludedNamespaces
+            .Where(pattern => !string.IsNullOrWhiteSpace(pattern))
+            .Select(CreateNamespaceMatcher)
+            .ToList();
+
+        var nodes = graph.Nodes
+            .Where(node => !excludedMatchers.Any(matcher => matcher(GetNodeNamespace(node))))
+            .ToList();
+
+        var allowedNodeIds = nodes.Select(node => node.Id).ToHashSet();
+        var edges = graph.Edges
+            .Where(edge => allowedNodeIds.Contains(edge.SourceId) && allowedNodeIds.Contains(edge.TargetId))
+            .ToList();
 
         var filtered = new DependencyGraph();
-        var excludedSet = new HashSet<string>(excludedNamespaces);
-        var nodeIds = graph.Nodes
-            .Where(n => !excludedSet.Contains(n.Namespace ?? ""))
-            .Select(n => n.Id)
-            .ToHashSet();
-
-        foreach (var node in graph.Nodes.Where(n => nodeIds.Contains(n.Id)))
+        foreach (var node in nodes)
         {
             filtered.Nodes.Add(node);
         }
 
-        foreach (var edge in graph.Edges.Where(e => nodeIds.Contains(e.SourceId) && nodeIds.Contains(e.TargetId)))
+        foreach (var edge in edges)
         {
             filtered.Edges.Add(edge);
         }
 
         return filtered;
+    }
+
+    private static Func<string, bool> CreateNamespaceMatcher(string pattern)
+    {
+        var regexPattern = "^" + Regex.Escape(pattern).Replace("\\*", ".*") + "$";
+        var regex = new Regex(regexPattern, RegexOptions.IgnoreCase | RegexOptions.Compiled);
+        return value => regex.IsMatch(value ?? string.Empty);
+    }
+
+    private static string GetNodeNamespace(NodeMetadata node)
+    {
+        if (!string.IsNullOrWhiteSpace(node.Namespace))
+        {
+            return node.Namespace;
+        }
+
+        if (string.IsNullOrWhiteSpace(node.Name))
+        {
+            return string.Empty;
+        }
+
+        var lastDot = node.Name.LastIndexOf('.');
+        return lastDot > 0 ? node.Name[..lastDot] : string.Empty;
     }
 
     private static string GenerateMermaidDiagram(DependencyGraph graph, ExportOptions options)
