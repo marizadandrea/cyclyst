@@ -130,14 +130,27 @@ public sealed class DrawIoExporter : IExporter
 
     private static string GetEdgeStyle(DependencyType relation, NodeMetadata? targetNode)
     {
-        return relation switch
+        var targetIsInterface = targetNode?.Type == ElementType.Interface;
+        var baseStyle = "edgeStyle=orthogonalEdgeStyle;";
+        var strokeColor = "strokeColor=#111827;";
+
+        // Implementation of an interface is a form of inheritance
+        if (relation == DependencyType.Implementation)
         {
-            DependencyType.Implementation => "edgeStyle=orthogonalEdgeStyle;endArrow=block;dashed=1;endFill=0;strokeColor=#0f766e;",
-            DependencyType.Inheritance => targetNode?.IsAbstract == true
-                ? "edgeStyle=orthogonalEdgeStyle;endArrow=block;endFill=0;strokeColor=#7c3aed;"
-                : "edgeStyle=orthogonalEdgeStyle;endArrow=block;endFill=0;strokeColor=#111827;",
-            _ => "edgeStyle=orthogonalEdgeStyle;endArrow=none;strokeColor=#6b7280;"
-        };
+            var dashStyle = "dashed=1;";
+            return baseStyle + "endArrow=block;endFill=0;" + dashStyle + strokeColor;
+        }
+
+        // Inheritance relationships use block arrows
+        if (relation == DependencyType.Inheritance)
+        {
+            var dashStyle = targetIsInterface ? "dashed=1;" : "";
+            return baseStyle + "endArrow=block;endFill=0;" + dashStyle + strokeColor;
+        }
+
+        // All other dependency types (Field, Property, MethodParameter, LocalVariable) have no arrow
+        var dependencyDashStyle = targetIsInterface ? "dashed=1;" : "";
+        return baseStyle + "endArrow=none;" + dependencyDashStyle + strokeColor;
     }
 
     private static string EscapeXml(string text)
