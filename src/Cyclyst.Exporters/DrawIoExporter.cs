@@ -77,9 +77,11 @@ public sealed class DrawIoExporter : IExporter
 
         sb.AppendLine("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
         sb.AppendLine("<mxfile host=\"app.diagrams.net\" modified=\"" + DateTime.UtcNow.ToString("o") + "\" agent=\"Cyclyst\" version=\"20.1.3\">");
-        sb.AppendLine("  <diagram name=\"Cyclyst Dependency Graph\" id=\"diagram-1\"><![CDATA[");
-        sb.AppendLine("    <mxGraphModel dx=\"1283\" dy=\"770\" grid=\"1\" gridSize=\"10\" guides=\"1\" tooltips=\"1\" connect=\"1\" arrows=\"1\" fold=\"1\" page=\"1\" pageScale=\"1\" pageWidth=\"827\" pageHeight=\"1169\">\n      <root>");
-        sb.AppendLine("      <mxCell id=\"0\"/>\n      <mxCell id=\"1\" parent=\"0\"/>\n");
+        sb.AppendLine("  <diagram name=\"Cyclyst Dependency Graph\" id=\"diagram-1\">");
+        sb.AppendLine("    <mxGraphModel dx=\"1283\" dy=\"770\" grid=\"1\" gridSize=\"10\" guides=\"1\" tooltips=\"1\" connect=\"1\" arrows=\"1\" fold=\"1\" page=\"1\" pageScale=\"1\" pageWidth=\"827\" pageHeight=\"1169\">");
+        sb.AppendLine("      <root>");
+        sb.AppendLine("      <mxCell id=\"0\"/>");
+        sb.AppendLine("      <mxCell id=\"1\" parent=\"0\"/>");
 
         for (var index = 0; index < nodes.Count; index++)
         {
@@ -108,9 +110,9 @@ public sealed class DrawIoExporter : IExporter
             sb.AppendLine($"      <mxCell id=\"{id}\" edge=\"1\" parent=\"1\" source=\"{sourceId}\" target=\"{targetId}\" style=\"{style}\">\n        <mxGeometry relative=\"1\" as=\"geometry\"/>\n      </mxCell>");
         }
 
-        sb.AppendLine("    </root>");
+        sb.AppendLine("      </root>");
         sb.AppendLine("    </mxGraphModel>");
-        sb.AppendLine("]]></diagram>");
+        sb.AppendLine("  </diagram>");
         sb.AppendLine("</mxfile>");
 
         return sb.ToString();
