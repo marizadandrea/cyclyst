@@ -131,6 +131,34 @@ public class DependencyHarvester : CSharpSyntaxWalker
         var elementType = symbol?.TypeKind == TypeKind.Interface ? ElementType.Interface : ElementType.Class;
         var isAbstract = symbol?.IsAbstract == true;
         AddOrUpdateNode(new NodeMetadata(targetId, symbol?.Name ?? syntax.ToString(), elementType, null, symbol?.ContainingNamespace?.ToDisplayString(), isAbstract));
+
+        // Extract and add generic type arguments as dependencies
+        ExtractAndAddGenericTypeArguments(sourceId, symbol, dependencyType);
+    }
+
+    private void ExtractAndAddGenericTypeArguments(string sourceId, ITypeSymbol? symbol, DependencyType dependencyType)
+    {
+        if (symbol is not INamedTypeSymbol namedSymbol || namedSymbol.TypeArguments.IsEmpty)
+        {
+            return;
+        }
+
+        foreach (var typeArg in namedSymbol.TypeArguments)
+        {
+            var argTargetId = GetTypeId(typeArg, typeArg.Name);
+            if (ShouldSkipDependency(typeArg, argTargetId))
+            {
+                continue;
+            }
+
+            Edges.Add(new EdgeMetadata(sourceId, argTargetId, dependencyType));
+            var elementType = typeArg.TypeKind == TypeKind.Interface ? ElementType.Interface : ElementType.Class;
+            var isAbstract = typeArg.IsAbstract;
+            AddOrUpdateNode(new NodeMetadata(argTargetId, typeArg.Name, elementType, null, typeArg.ContainingNamespace?.ToDisplayString(), isAbstract));
+
+            // Recursively handle nested generics (e.g., List<Dictionary<K, V>>)
+            ExtractAndAddGenericTypeArguments(sourceId, typeArg, dependencyType);
+        }
     }
 
     private bool ShouldSkipDependency(ITypeSymbol? symbol, string targetId)
