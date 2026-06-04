@@ -74,6 +74,28 @@ public class DependencyHarvester : CSharpSyntaxWalker
         base.VisitConstructorDeclaration(node);
     }
 
+    public override void VisitMethodDeclaration(MethodDeclarationSyntax node)
+    {
+        if (_currentTypeId == null)
+        {
+            base.VisitMethodDeclaration(node);
+            return;
+        }
+
+        // Process return type
+        var returnTypeInfo = _semanticModel.GetTypeInfo(node.ReturnType);
+        AddDependency(_currentTypeId, returnTypeInfo.Type, node.ReturnType, DependencyType.MethodParameter);
+
+        // Process method parameters
+        foreach (var parameter in node.ParameterList.Parameters)
+        {
+            var typeInfo = _semanticModel.GetTypeInfo(parameter.Type!);
+            AddDependency(_currentTypeId, typeInfo.Type, parameter.Type!, DependencyType.MethodParameter);
+        }
+
+        base.VisitMethodDeclaration(node);
+    }
+
     public override void VisitFieldDeclaration(FieldDeclarationSyntax node)
     {
         if (_currentTypeId == null) return;
@@ -122,6 +144,10 @@ public class DependencyHarvester : CSharpSyntaxWalker
     private void AddDependency(string sourceId, ITypeSymbol? symbol, TypeSyntax syntax, DependencyType dependencyType)
     {
         var targetId = GetTypeId(symbol, syntax.ToString());
+        
+        // Extract and add generic type arguments as dependencies (do this even if the container is skipped)
+        ExtractAndAddGenericTypeArguments(sourceId, symbol, dependencyType);
+        
         if (ShouldSkipDependency(symbol, targetId))
         {
             return;
@@ -131,9 +157,6 @@ public class DependencyHarvester : CSharpSyntaxWalker
         var elementType = symbol?.TypeKind == TypeKind.Interface ? ElementType.Interface : ElementType.Class;
         var isAbstract = symbol?.IsAbstract == true;
         AddOrUpdateNode(new NodeMetadata(targetId, symbol?.Name ?? syntax.ToString(), elementType, null, symbol?.ContainingNamespace?.ToDisplayString(), isAbstract));
-
-        // Extract and add generic type arguments as dependencies
-        ExtractAndAddGenericTypeArguments(sourceId, symbol, dependencyType);
     }
 
     private void ExtractAndAddGenericTypeArguments(string sourceId, ITypeSymbol? symbol, DependencyType dependencyType)
@@ -148,6 +171,8 @@ public class DependencyHarvester : CSharpSyntaxWalker
             var argTargetId = GetTypeId(typeArg, typeArg.Name);
             if (ShouldSkipDependency(typeArg, argTargetId))
             {
+                // Still recursively extract from skipped types (e.g., nested generics like List<List<ClassB>>)
+                ExtractAndAddGenericTypeArguments(sourceId, typeArg, dependencyType);
                 continue;
             }
 

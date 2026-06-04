@@ -244,10 +244,10 @@ public sealed class HtmlSvgExporter : IExporter
         var target = graph.Nodes.FirstOrDefault(n => n.Id == edge.TargetId);
         var targetIsInterface = target?.Type == ElementType.Interface;
 
-        // Implementation of an interface is a form of inheritance
+        // Implementation of an interface
         if (edge.Relation == DependencyType.Implementation)
         {
-            return "relation-inheritance-interface";
+            return "relation-implementation";
         }
 
         if (edge.Relation == DependencyType.Inheritance)
@@ -302,6 +302,7 @@ public sealed class HtmlSvgExporter : IExporter
         builder.AppendLine("    .edge.relation-dependency-interface { stroke: #111827; stroke-dasharray: 4 3; } ");
         builder.AppendLine("    .edge.relation-inheritance-class { stroke: #111827; stroke-dasharray: none; } ");
         builder.AppendLine("    .edge.relation-inheritance-interface { stroke: #111827; stroke-dasharray: 4 3; } ");
+        builder.AppendLine("    .edge.relation-implementation { stroke: #111827; stroke-dasharray: 4 3; } ");
         builder.AppendLine("    .edge.cycle { stroke: #dc143c; stroke-width: 2.5; } ");
         builder.AppendLine("    .edge.highlighted { filter: drop-shadow(0 0 8px rgba(220, 20, 60, 0.55)); opacity: 1; } ");
         builder.AppendLine("    .edge.hovered { stroke: #111827; color: #111827; opacity: 1; filter: drop-shadow(0 0 6px rgba(17, 24, 39, 0.35)); } ");

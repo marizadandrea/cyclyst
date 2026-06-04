@@ -186,4 +186,82 @@ public class ClassB { }
         // Should detect ClassB even when nested in multiple generic levels
         Assert.Contains(graph.Edges, e => e.SourceId == "ClassA" && e.TargetId == "ClassB" && e.Relation == DependencyType.Field);
     }
+
+    [Fact]
+    public async Task Should_Detect_Method_Parameter_Dependencies_Between_Classes()
+    {
+        var sourceCode = @"
+public class ClassA {
+    public void DoSomething(ClassB dependency) { }
+}
+public class ClassB { }
+";
+        var scanner = new RoslynSourceScanner();
+
+        var graph = await scanner.ScanAsync(sourceCode);
+
+        Assert.Contains(graph.Nodes, n => n.Id == "ClassA");
+        Assert.Contains(graph.Nodes, n => n.Id == "ClassB");
+        Assert.Contains(graph.Edges, e => e.SourceId == "ClassA" && e.TargetId == "ClassB" && e.Relation == DependencyType.MethodParameter);
+    }
+
+    [Fact]
+    public async Task Should_Detect_Method_Return_Type_Dependencies_Between_Classes()
+    {
+        var sourceCode = @"
+public class ClassA {
+    public ClassB GetDependency() { return null; }
+}
+public class ClassB { }
+";
+        var scanner = new RoslynSourceScanner();
+
+        var graph = await scanner.ScanAsync(sourceCode);
+
+        Assert.Contains(graph.Nodes, n => n.Id == "ClassA");
+        Assert.Contains(graph.Nodes, n => n.Id == "ClassB");
+        Assert.Contains(graph.Edges, e => e.SourceId == "ClassA" && e.TargetId == "ClassB" && e.Relation == DependencyType.MethodParameter);
+    }
+
+    [Fact]
+    public async Task Should_Detect_Method_Multiple_Parameters_As_Dependencies()
+    {
+        var sourceCode = @"
+public class ClassA {
+    public void ProcessData(ClassB first, ClassC second) { }
+}
+public class ClassB { }
+public class ClassC { }
+";
+        var scanner = new RoslynSourceScanner();
+
+        var graph = await scanner.ScanAsync(sourceCode);
+
+        Assert.Contains(graph.Nodes, n => n.Id == "ClassA");
+        Assert.Contains(graph.Nodes, n => n.Id == "ClassB");
+        Assert.Contains(graph.Nodes, n => n.Id == "ClassC");
+        Assert.Contains(graph.Edges, e => e.SourceId == "ClassA" && e.TargetId == "ClassB" && e.Relation == DependencyType.MethodParameter);
+        Assert.Contains(graph.Edges, e => e.SourceId == "ClassA" && e.TargetId == "ClassC" && e.Relation == DependencyType.MethodParameter);
+    }
+
+    [Fact]
+    public async Task Should_Detect_Method_Return_Type_And_Parameters_As_Dependencies()
+    {
+        var sourceCode = @"
+public class ClassA {
+    public ClassC Transform(ClassB input) { return null; }
+}
+public class ClassB { }
+public class ClassC { }
+";
+        var scanner = new RoslynSourceScanner();
+
+        var graph = await scanner.ScanAsync(sourceCode);
+
+        Assert.Contains(graph.Nodes, n => n.Id == "ClassA");
+        Assert.Contains(graph.Nodes, n => n.Id == "ClassB");
+        Assert.Contains(graph.Nodes, n => n.Id == "ClassC");
+        Assert.Contains(graph.Edges, e => e.SourceId == "ClassA" && e.TargetId == "ClassB" && e.Relation == DependencyType.MethodParameter);
+        Assert.Contains(graph.Edges, e => e.SourceId == "ClassA" && e.TargetId == "ClassC" && e.Relation == DependencyType.MethodParameter);
+    }
 }
