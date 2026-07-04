@@ -17,7 +17,7 @@ namespace Cyclyst.Cli.Handlers;
 
 public sealed class AnalysisHandler
 {
-    public async Task<int> RunAsync(string path, string outputFolder, IEnumerable<string> excludedNamespaces, GroupingLevel groupingLevel, ExportType exportType = ExportType.HtmlSvg)
+    public async Task<int> RunAsync(string path, string outputFolder, IEnumerable<string> excludedNamespaces, IEnumerable<string> includedNamespaces, GroupingLevel groupingLevel, ExportType exportType = ExportType.HtmlSvg)
     {
         ArgumentNullException.ThrowIfNull(path);
 
@@ -53,6 +53,10 @@ public sealed class AnalysisHandler
         await AnsiConsole.Status().StartAsync("Loading Solution...", async statusContext =>
         {
             var graph = await BuildDependencyGraphAsync(resolvedPath, statusContext);
+            if (includedNamespaces != null && includedNamespaces.Any(x => !string.IsNullOrWhiteSpace(x)))
+            {
+                graph = graph.FilterToIncludedNamespaces(includedNamespaces);
+            }
 
             statusContext.Status("Detecting Cycles...");
             var cycleResults = new TarjanCycleDetector().DetectCycles(graph).ToList();

@@ -51,6 +51,25 @@ public class CycleDetectorTests
     }
 
     [Fact]
+    public void FilterToIncludedNamespaces_PreservesReachableDependenciesFromIncludedNamespace()
+    {
+        var graph = new DependencyGraph();
+        graph.Nodes.Add(new NodeMetadata("A", "A", ElementType.Class, null, "MyApp.Services"));
+        graph.Nodes.Add(new NodeMetadata("B", "B", ElementType.Class, null, "MyApp.Shared"));
+        graph.Nodes.Add(new NodeMetadata("C", "C", ElementType.Class, null, "MyApp.External"));
+        graph.Edges.Add(new EdgeMetadata("A", "B", DependencyType.MethodParameter));
+        graph.Edges.Add(new EdgeMetadata("B", "C", DependencyType.MethodParameter));
+
+        var filtered = graph.FilterToIncludedNamespaces(new[] { "MyApp.Services" });
+
+        Assert.Contains(filtered.Nodes, n => n.Id == "A");
+        Assert.Contains(filtered.Nodes, n => n.Id == "B");
+        Assert.Contains(filtered.Nodes, n => n.Id == "C");
+        Assert.Contains(filtered.Edges, e => e.SourceId == "A" && e.TargetId == "B");
+        Assert.Contains(filtered.Edges, e => e.SourceId == "B" && e.TargetId == "C");
+    }
+
+    [Fact]
     public void DetectCycles_ScaleTest_DoesNotStackOverflow()
     {
         const int nodeCount = 5000;

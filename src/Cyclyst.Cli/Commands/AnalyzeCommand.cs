@@ -28,6 +28,15 @@ public static class AnalyzeCommandFactory
         };
         outputOption.Aliases.Add("-o");
 
+        var includeOption = new Option<string[]>("--namespaces")
+        {
+            Description = "Namespaces to analyze; dependencies from those namespaces are included",
+            AllowMultipleArgumentsPerToken = true,
+            Arity = ArgumentArity.ZeroOrMore,
+            DefaultValueFactory = _ => Array.Empty<string>()
+        };
+        includeOption.Aliases.Add("-n");
+
         var excludeOption = new Option<string[]>("--exclude")
         {
             Description = "Namespaces to ignore",
@@ -55,6 +64,7 @@ public static class AnalyzeCommandFactory
         {
             pathArgument,
             outputOption,
+            includeOption,
             excludeOption,
             levelOption,
             exportOption
@@ -64,12 +74,13 @@ public static class AnalyzeCommandFactory
         {
             var path = parseResult.GetValue(pathArgument)!;
             var output = parseResult.GetValue(outputOption)!;
+            var includes = parseResult.GetValue(includeOption)!;
             var excludes = parseResult.GetValue(excludeOption)!;
             var level = parseResult.GetValue(levelOption);
             var exportType = parseResult.GetValue(exportOption);
 
             var handler = new AnalysisHandler();
-            handler.RunAsync(path, output, excludes, level, exportType).GetAwaiter().GetResult();
+            handler.RunAsync(path, output, excludes, includes, level, exportType).GetAwaiter().GetResult();
         });
 
         return command;

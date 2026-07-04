@@ -14,6 +14,7 @@ Options:
 
 - `<path>`: Path to a `.csproj` or `.sln` file.
 - `--output`: Target directory for the generated report.
+- `--namespaces`: One or more namespaces to analyze; dependencies used by those namespaces will also be included. Pass multiple namespaces with separate values, for example: `-n MyApp.Services MyApp.Shared`.
 - `--exclude`: One or more namespaces to ignore.
 - `--level`: `Namespace` or `Class` grouping for the generated HTML/SVG report.
 
@@ -42,4 +43,4 @@ dotnet run -- analyze ./path/to/project.csproj --export-type DrawIo
 ```
 
 # Combined with other options
-dotnet run -- analyze ./path/to/project.csproj -x Mermaid -o ./reports -l Class
+dotnet run -- analyze ./path/to/project.csproj -n MyApp.Services -x Mermaid -o ./reports -l Class
