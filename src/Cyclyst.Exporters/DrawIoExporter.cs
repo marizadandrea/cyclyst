@@ -95,7 +95,7 @@ public sealed class DrawIoExporter : IExporter
             var height = 80;
             var style = GetNodeStyle(node);
             var label = node.Name;
-            sb.AppendLine($"      <mxCell id=\"{id}\" value=\"&lt;![CDATA[{label}]]&gt;\" style=\"{style}\" vertex=\"1\" parent=\"1\">\n        <mxGeometry x=\"{x}\" y=\"{y}\" width=\"{width}\" height=\"{height}\" as=\"geometry\"/>\n      </mxCell>");
+            sb.AppendLine($"      <mxCell id=\"{id}\" value=\"<![CDATA[{label}]]>\" style=\"{style}\" vertex=\"1\" parent=\"1\">\n        <mxGeometry x=\"{x}\" y=\"{y}\" width=\"{width}\" height=\"{height}\" as=\"geometry\"/>\n      </mxCell>");
         }
 
         foreach (var edge in graph.Edges)
