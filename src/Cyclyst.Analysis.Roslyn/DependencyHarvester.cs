@@ -169,6 +169,12 @@ public class DependencyHarvester : CSharpSyntaxWalker
         foreach (var typeArg in namedSymbol.TypeArguments)
         {
             var argTargetId = GetTypeId(typeArg, typeArg.Name);
+            if (argTargetId == sourceId)
+            {
+                // A generic argument referring to the containing type should not create a false self-dependency.
+                continue;
+            }
+
             if (ShouldSkipDependency(typeArg, argTargetId))
             {
                 // Still recursively extract from skipped types (e.g., nested generics like List<List<ClassB>>)

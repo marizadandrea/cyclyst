@@ -147,6 +147,22 @@ public class ClassB { }
     }
 
     [Fact]
+    public async Task Should_Not_Treat_Same_Class_In_Generic_Argument_As_SelfDependency()
+    {
+        var sourceCode = @"
+public class OrderDBContext {
+    public OrderDBContext(System.Collections.Generic.List<OrderDBContext> options) { }
+}
+";
+        var scanner = new RoslynSourceScanner();
+
+        var graph = await scanner.ScanAsync(sourceCode);
+
+        Assert.Contains(graph.Nodes, n => n.Id == "OrderDBContext");
+        Assert.DoesNotContain(graph.Edges, e => e.SourceId == "OrderDBContext" && e.TargetId == "OrderDBContext");
+    }
+
+    [Fact]
     public async Task Should_Detect_Multiple_Generic_Type_Arguments_As_Dependencies()
     {
         var sourceCode = @"
