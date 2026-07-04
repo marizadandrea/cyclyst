@@ -17,7 +17,7 @@ namespace Cyclyst.Cli.Handlers;
 
 public sealed class AnalysisHandler
 {
-    public async Task<int> RunAsync(string path, string outputFolder, IEnumerable<string> excludedNamespaces, IEnumerable<string> includedNamespaces, GroupingLevel groupingLevel, ExportType exportType = ExportType.HtmlSvg)
+    public async Task<int> RunAsync(string path, string outputFolder, IEnumerable<string> excludedNamespaces, IEnumerable<string> includedNamespaces, IEnumerable<string> stopAtPatterns, GroupingLevel groupingLevel, ExportType exportType = ExportType.HtmlSvg)
     {
         ArgumentNullException.ThrowIfNull(path);
 
@@ -56,6 +56,11 @@ public sealed class AnalysisHandler
             if (includedNamespaces != null && includedNamespaces.Any(x => !string.IsNullOrWhiteSpace(x)))
             {
                 graph = graph.FilterToIncludedNamespaces(includedNamespaces);
+            }
+
+            if (stopAtPatterns != null && stopAtPatterns.Any(x => !string.IsNullOrWhiteSpace(x)))
+            {
+                graph = graph.StopAt(stopAtPatterns);
             }
 
             statusContext.Status("Detecting Cycles...");

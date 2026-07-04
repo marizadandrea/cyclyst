@@ -37,6 +37,15 @@ public static class AnalyzeCommandFactory
         };
         includeOption.Aliases.Add("-n");
 
+        var stopAtOption = new Option<string[]>("--stop-at")
+        {
+            Description = "A class or namespace at which analysis should stop; dependencies beyond this match are excluded",
+            AllowMultipleArgumentsPerToken = true,
+            Arity = ArgumentArity.ZeroOrMore,
+            DefaultValueFactory = _ => Array.Empty<string>()
+        };
+        stopAtOption.Aliases.Add("-s");
+
         var excludeOption = new Option<string[]>("--exclude")
         {
             Description = "Namespaces to ignore",
@@ -65,6 +74,7 @@ public static class AnalyzeCommandFactory
             pathArgument,
             outputOption,
             includeOption,
+            stopAtOption,
             excludeOption,
             levelOption,
             exportOption
@@ -75,12 +85,13 @@ public static class AnalyzeCommandFactory
             var path = parseResult.GetValue(pathArgument)!;
             var output = parseResult.GetValue(outputOption)!;
             var includes = parseResult.GetValue(includeOption)!;
+            var stopAt = parseResult.GetValue(stopAtOption)!;
             var excludes = parseResult.GetValue(excludeOption)!;
             var level = parseResult.GetValue(levelOption);
             var exportType = parseResult.GetValue(exportOption);
 
             var handler = new AnalysisHandler();
-            handler.RunAsync(path, output, excludes, includes, level, exportType).GetAwaiter().GetResult();
+            handler.RunAsync(path, output, excludes, includes, stopAt, level, exportType).GetAwaiter().GetResult();
         });
 
         return command;
