@@ -116,6 +116,63 @@ public class DependencyHarvester : CSharpSyntaxWalker
         base.VisitPropertyDeclaration(node);
     }
 
+    public override void VisitObjectCreationExpression(ObjectCreationExpressionSyntax node)
+    {
+        if (_currentTypeId == null)
+        {
+            base.VisitObjectCreationExpression(node);
+            return;
+        }
+
+        var typeInfo = _semanticModel.GetTypeInfo(node);
+        AddDependency(_currentTypeId, typeInfo.Type, node.Type, DependencyType.LocalVariable);
+
+        base.VisitObjectCreationExpression(node);
+    }
+
+    public override void VisitInvocationExpression(InvocationExpressionSyntax node)
+    {
+        if (_currentTypeId == null)
+        {
+            base.VisitInvocationExpression(node);
+            return;
+        }
+
+        if (IsServiceProviderGetServiceInvocation(node))
+        {
+            foreach (var typeArgument in node.ArgumentList == null ? Array.Empty<TypeSyntax>() : Array.Empty<TypeSyntax>())
+            {
+                // intentionally empty - generic type arguments are handled below using the syntax tree
+            }
+
+            if (node.Expression is MemberAccessExpressionSyntax memberAccess && memberAccess.Name is GenericNameSyntax genericName)
+            {
+                foreach (var typeArgument in genericName.TypeArgumentList.Arguments)
+                {
+                    var typeInfo = _semanticModel.GetTypeInfo(typeArgument);
+                    AddDependency(_currentTypeId, typeInfo.Type, typeArgument, DependencyType.LocalVariable);
+                }
+            }
+        }
+
+        base.VisitInvocationExpression(node);
+    }
+
+    private static bool IsServiceProviderGetServiceInvocation(InvocationExpressionSyntax node)
+    {
+        if (node.Expression is not MemberAccessExpressionSyntax memberAccess)
+        {
+            return false;
+        }
+
+        if (memberAccess.Name.Identifier.ValueText != "GetService")
+        {
+            return false;
+        }
+
+        return memberAccess.Name is GenericNameSyntax;
+    }
+
     private void ProcessBaseTypes(BaseListSyntax? baseList)
     {
         if (_currentTypeId == null || baseList == null) return;

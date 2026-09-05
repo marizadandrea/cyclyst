@@ -280,4 +280,53 @@ public class ClassC { }
         Assert.Contains(graph.Edges, e => e.SourceId == "ClassA" && e.TargetId == "ClassB" && e.Relation == DependencyType.MethodParameter);
         Assert.Contains(graph.Edges, e => e.SourceId == "ClassA" && e.TargetId == "ClassC" && e.Relation == DependencyType.MethodParameter);
     }
+
+    [Fact]
+    public async Task Should_Detect_Local_Object_Creation_As_Dependency()
+    {
+        var sourceCode = @"
+public class ClassA {
+    public void Method() {
+        var dependency = new ClassB();
+    }
+}
+public class ClassB { }
+";
+        var scanner = new RoslynSourceScanner();
+
+        var graph = await scanner.ScanAsync(sourceCode);
+
+        Assert.Contains(graph.Nodes, n => n.Id == "ClassA");
+        Assert.Contains(graph.Nodes, n => n.Id == "ClassB");
+        Assert.Contains(graph.Edges, e => e.SourceId == "ClassA" && e.TargetId == "ClassB" && e.Relation == DependencyType.LocalVariable);
+    }
+
+    [Fact]
+    public async Task Should_Detect_Service_Provider_GetService_Generic_Usage_As_Dependency()
+    {
+        var sourceCode = @"
+public interface IServiceProvider {
+    T GetService<T>();
+}
+public class ClassA {
+    private readonly IServiceProvider _serviceProvider;
+
+    public ClassA(IServiceProvider serviceProvider) {
+        _serviceProvider = serviceProvider;
+    }
+
+    public void Method() {
+        var dependency = _serviceProvider.GetService<ClassB>();
+    }
+}
+public class ClassB { }
+";
+        var scanner = new RoslynSourceScanner();
+
+        var graph = await scanner.ScanAsync(sourceCode);
+
+        Assert.Contains(graph.Nodes, n => n.Id == "ClassA");
+        Assert.Contains(graph.Nodes, n => n.Id == "ClassB");
+        Assert.Contains(graph.Edges, e => e.SourceId == "ClassA" && e.TargetId == "ClassB" && e.Relation == DependencyType.LocalVariable);
+    }
 }
