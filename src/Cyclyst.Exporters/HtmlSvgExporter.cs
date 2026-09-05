@@ -245,10 +245,11 @@ public sealed class HtmlSvgExporter : IExporter
         var targetIsInterface = target?.Type == ElementType.Interface;
 
         // Implementation of an interface
-        if (edge.Relation == DependencyType.Implementation)
-        {
-            return "relation-implementation";
-        }
+      // Treat interface implementation as a form of inheritance for visualization
+      if (edge.Relation == DependencyType.Implementation)
+      {
+        return "relation-inheritance-interface";
+      }
 
         if (edge.Relation == DependencyType.Inheritance)
         {
