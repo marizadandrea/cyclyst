@@ -55,6 +55,15 @@ public static class AnalyzeCommandFactory
         };
         excludeOption.Aliases.Add("-e");
 
+        var dependentsOption = new Option<string[]>("--dependents-of")
+        {
+            Description = "A class or namespace to find dependents of; report will be limited to types that reference these",
+            AllowMultipleArgumentsPerToken = true,
+            Arity = ArgumentArity.ZeroOrMore,
+            DefaultValueFactory = _ => Array.Empty<string>()
+        };
+        dependentsOption.Aliases.Add("-d");
+
         var levelOption = new Option<GroupingLevel>("--level")
         {
             Description = "Grouping level for the report: Namespace or Class",
@@ -75,6 +84,7 @@ public static class AnalyzeCommandFactory
             outputOption,
             includeOption,
             stopAtOption,
+            dependentsOption,
             excludeOption,
             levelOption,
             exportOption
@@ -86,12 +96,13 @@ public static class AnalyzeCommandFactory
             var output = parseResult.GetValue(outputOption)!;
             var includes = parseResult.GetValue(includeOption)!;
             var stopAt = parseResult.GetValue(stopAtOption)!;
+            var dependents = parseResult.GetValue(dependentsOption)!;
             var excludes = parseResult.GetValue(excludeOption)!;
             var level = parseResult.GetValue(levelOption);
             var exportType = parseResult.GetValue(exportOption);
 
             var handler = new AnalysisHandler();
-            handler.RunAsync(path, output, excludes, includes, stopAt, level, exportType).GetAwaiter().GetResult();
+            handler.RunAsync(path, output, excludes, includes, stopAt, dependents, level, exportType).GetAwaiter().GetResult();
         });
 
         return command;
