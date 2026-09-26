@@ -96,6 +96,18 @@ public class DependencyHarvester : CSharpSyntaxWalker
         base.VisitMethodDeclaration(node);
     }
 
+    public override void VisitParenthesizedLambdaExpression(ParenthesizedLambdaExpressionSyntax node)
+    {
+        ProcessLambdaParameters(node.ParameterList.Parameters);
+        base.VisitParenthesizedLambdaExpression(node);
+    }
+
+    public override void VisitSimpleLambdaExpression(SimpleLambdaExpressionSyntax node)
+    {
+        ProcessLambdaParameters(new[] { node.Parameter });
+        base.VisitSimpleLambdaExpression(node);
+    }
+
     public override void VisitFieldDeclaration(FieldDeclarationSyntax node)
     {
         if (_currentTypeId == null) return;
@@ -199,8 +211,38 @@ public class DependencyHarvester : CSharpSyntaxWalker
     }
 
     private void AddDependency(string sourceId, ITypeSymbol? symbol, TypeSyntax syntax, DependencyType dependencyType)
+        => AddDependency(sourceId, symbol, syntax.ToString(), dependencyType);
+
+    private void ProcessLambdaParameters(IEnumerable<ParameterSyntax> parameters)
     {
-        var targetId = GetTypeId(symbol, syntax.ToString());
+        if (_currentTypeId == null)
+        {
+            return;
+        }
+
+        foreach (var parameter in parameters)
+        {
+            if (parameter.SyntaxTree != _semanticModel.SyntaxTree)
+            {
+                continue;
+            }
+
+            var parameterType = parameter.Type != null
+                ? _semanticModel.GetTypeInfo(parameter.Type).Type
+                : (_semanticModel.GetDeclaredSymbol(parameter) as IParameterSymbol)?.Type;
+            if (parameterType == null)
+            {
+                continue;
+            }
+
+            var typeName = parameter.Type?.ToString() ?? parameterType.ToDisplayString();
+            AddDependency(_currentTypeId, parameterType, typeName, DependencyType.MethodParameter);
+        }
+    }
+
+    private void AddDependency(string sourceId, ITypeSymbol? symbol, string fallbackName, DependencyType dependencyType)
+    {
+        var targetId = GetTypeId(symbol, fallbackName);
         
         // Extract and add generic type arguments as dependencies (do this even if the container is skipped)
         ExtractAndAddGenericTypeArguments(sourceId, symbol, dependencyType);
@@ -213,7 +255,7 @@ public class DependencyHarvester : CSharpSyntaxWalker
         Edges.Add(new EdgeMetadata(sourceId, targetId, dependencyType));
         var elementType = symbol?.TypeKind == TypeKind.Interface ? ElementType.Interface : ElementType.Class;
         var isAbstract = symbol?.IsAbstract == true;
-        AddOrUpdateNode(new NodeMetadata(targetId, symbol?.Name ?? syntax.ToString(), elementType, null, symbol?.ContainingNamespace?.ToDisplayString(), isAbstract));
+        AddOrUpdateNode(new NodeMetadata(targetId, symbol?.Name ?? fallbackName, elementType, null, symbol?.ContainingNamespace?.ToDisplayString(), isAbstract));
     }
 
     private void ExtractAndAddGenericTypeArguments(string sourceId, ITypeSymbol? symbol, DependencyType dependencyType)

@@ -1,0 +1,587 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cyclyst Architecture Report</title>
+  <style>
+    body { font-family: Segoe UI, Arial, sans-serif; margin: 0; padding: 0; background: #f5f6fa; color: #1f2937; } 
+    .container { display: grid; grid-template-columns: 320px minmax(0, 1fr); height: 100vh; overflow: hidden; } 
+    .sidebar { background: #ffffff; border-right: 1px solid #e5e7eb; padding: 16px; overflow-y: auto; } 
+    .sidebar h2 { font-size: 1rem; margin-top: 0; } 
+    .cycle-item { padding: 10px; border: 1px solid #e5e7eb; margin-bottom: 10px; border-radius: 8px; cursor: pointer; background: #fafafa; transition: background .2s ease; } 
+    .cycle-item:hover { background: #eef2ff; } 
+    .cycle-item.selected { background: #dbeafe; border-color: #93c5fd; } 
+    .toolbar { margin-bottom: 16px; display: flex; gap: 8px; align-items: center; } 
+    .toolbar button { padding: 10px 14px; border: none; border-radius: 8px; background: #2563eb; color: white; cursor: pointer; } 
+    .toolbar button:hover { background: #1d4ed8; } 
+    .graph-panel { position: relative; background: #ffffff; overflow: auto; } 
+    svg { min-width: 1200px; min-height: 900px; width: auto; height: auto; display: block; } 
+    .edge { fill: none; stroke: #111827; stroke-width: 1.5; stroke-linecap: round; opacity: 0.88; color: #111827; } 
+    .edge.namespace { stroke: #0000ff; opacity: 0.7; } 
+    .edge.relation-dependency-class { stroke: #111827; stroke-dasharray: none; } 
+    .edge.relation-dependency-interface { stroke: #111827; stroke-dasharray: 4 3; } 
+    .edge.relation-inheritance-class { stroke: #111827; stroke-dasharray: none; } 
+    .edge.relation-inheritance-interface { stroke: #111827; stroke-dasharray: 4 3; } 
+    .edge.relation-implementation { stroke: #111827; stroke-dasharray: 4 3; } 
+    .edge.cycle { stroke: #dc143c; stroke-width: 2.5; } 
+    .edge.highlighted { filter: drop-shadow(0 0 8px rgba(220, 20, 60, 0.55)); opacity: 1; } 
+    .edge.hovered { stroke: #111827; color: #111827; opacity: 1; filter: drop-shadow(0 0 6px rgba(17, 24, 39, 0.35)); } 
+    .node { cursor: grab; pointer-events: all; } 
+    .node.dragging rect { cursor: grabbing; opacity: 0.85; } 
+    .node rect { fill: #ffffff; stroke: #6b7280; stroke-width: 1.5; rx: 10; ry: 10; } 
+    .node.namespace rect { fill: #eef2ff; stroke: #3b82f6; } 
+    .node.cycle rect { fill: #fee2e2; stroke: #dc2626; stroke-width: 2; } 
+    .node.highlighted rect { animation: pulse 1.2s ease-in-out infinite alternate; stroke-width: 2.5; } 
+    .node text { pointer-events: none; font-size: 12px; fill: #111827; } 
+    .label { font-size: 0.95rem; margin-bottom: 8px; } 
+    @keyframes pulse { from { filter: drop-shadow(0 0 0 rgba(220, 20, 60, 0.2)); } to { filter: drop-shadow(0 0 16px rgba(220, 20, 60, 0.45)); } } 
+  </style>
+</head>
+<body>
+<div class="container">
+  <section class="sidebar">
+    <div class="toolbar">
+      <button id="toggleViewButton">Toggle View</button>
+      <button id="saveLayoutButton">Save Layout</button>
+      <button id="exportLayoutButton">Export Layout</button>
+      <button id="importLayoutButton">Import Layout</button>
+      <button id="resetLayoutButton">Reset Layout</button>
+      <input id="importLayoutInput" type="file" accept=".json" style="display:none" />
+    </div>
+    <div class="label">Detected cycles</div>
+    <div id="cycleList"></div>
+  </section>
+  <section class="graph-panel">
+    <svg id="graphCanvas" viewBox="0 0 1200 900"></svg>
+  </section>
+</div>
+<script>
+const graphPayload = 
+{"classGraph":{"nodes":[{"id":"AcmeServer.AcmeEndpointsMapper","label":"AcmeEndpointsMapper","namespace":"AcmeServer","type":"class","isPartOfCycle":false,"sccId":0,"group":"AcmeServer","tooltip":"AcmeEndpointsMapper"},{"id":"AcmeServer.Nonce.NonceStore","label":"NonceStore","namespace":"AcmeServer.Nonce","type":"class","isPartOfCycle":false,"sccId":0,"group":"AcmeServer.Nonce","tooltip":"NonceStore"},{"id":"AcmeServer.DTOs.JwsRequest","label":"JwsRequest","namespace":"AcmeServer.DTOs","type":"class","isPartOfCycle":false,"sccId":0,"group":"AcmeServer.DTOs","tooltip":"JwsRequest"},{"id":"AcmeServer.Stores.PskStore","label":"PskStore","namespace":"AcmeServer.Stores","type":"class","isPartOfCycle":false,"sccId":0,"group":"AcmeServer.Stores","tooltip":"PskStore"},{"id":"AcmeServer.Order.IAcmeOrderRepository","label":"IAcmeOrderRepository","namespace":"AcmeServer.Order","type":"class","isPartOfCycle":false,"sccId":0,"group":"AcmeServer.Order","tooltip":"IAcmeOrderRepository"},{"id":"AcmeServer.AcmePkiEngine.IPkiEngine","label":"IPkiEngine","namespace":"AcmeServer.AcmePkiEngine","type":"class","isPartOfCycle":false,"sccId":0,"group":"AcmeServer.AcmePkiEngine","tooltip":"IPkiEngine"},{"id":"AcmeServer.DTOs.JwsHeader","label":"JwsHeader","namespace":"AcmeServer.DTOs","type":"class","isPartOfCycle":false,"sccId":0,"group":"AcmeServer.DTOs","tooltip":"JwsHeader"},{"id":"SignCsrResult","label":"SignCsrResult","namespace":"\u003Cglobal namespace\u003E","type":"class","isPartOfCycle":false,"sccId":0,"group":"\u003Cglobal namespace\u003E","tooltip":"SignCsrResult"},{"id":"AcmeServer.AcmePkiEngine.PkiEngine","label":"PkiEngine","namespace":"AcmeServer.AcmePkiEngine","type":"class","isPartOfCycle":false,"sccId":0,"group":"AcmeServer.AcmePkiEngine","tooltip":"PkiEngine"},{"id":"ICertificateSigningEngine","label":"ICertificateSigningEngine","namespace":"\u003Cglobal namespace\u003E","type":"class","isPartOfCycle":false,"sccId":0,"group":"\u003Cglobal namespace\u003E","tooltip":"ICertificateSigningEngine"},{"id":"ICertificateVerifier","label":"ICertificateVerifier","namespace":"\u003Cglobal namespace\u003E","type":"class","isPartOfCycle":false,"sccId":0,"group":"\u003Cglobal namespace\u003E","tooltip":"ICertificateVerifier"},{"id":"ICertificateExtractor","label":"ICertificateExtractor","namespace":"\u003Cglobal namespace\u003E","type":"class","isPartOfCycle":false,"sccId":0,"group":"\u003Cglobal namespace\u003E","tooltip":"ICertificateExtractor"},{"id":"AcmeServer.Settings.AcmeSettings","label":"AcmeSettings","namespace":"AcmeServer.Settings","type":"class","isPartOfCycle":false,"sccId":0,"group":"AcmeServer.Settings","tooltip":"AcmeSettings"},{"id":"SignCsrRequest","label":"SignCsrRequest","namespace":"\u003Cglobal namespace\u003E","type":"class","isPartOfCycle":false,"sccId":0,"group":"\u003Cglobal namespace\u003E","tooltip":"SignCsrRequest"},{"id":"AcmeServer.AcmeServicesExtensions","label":"AcmeServicesExtensions","namespace":"AcmeServer","type":"class","isPartOfCycle":false,"sccId":0,"group":"AcmeServer","tooltip":"AcmeServicesExtensions"},{"id":"AcmeServer.Settings.PFXSettings","label":"PFXSettings","namespace":"AcmeServer.Settings","type":"class","isPartOfCycle":false,"sccId":0,"group":"AcmeServer.Settings","tooltip":"PFXSettings"},{"id":"AcmeServer.Nonce.ReplayNonceMiddleware","label":"ReplayNonceMiddleware","namespace":"AcmeServer.Nonce","type":"class","isPartOfCycle":false,"sccId":0,"group":"AcmeServer.Nonce","tooltip":"ReplayNonceMiddleware"},{"id":"AcmeServer.Nonce.ReplayNonceMiddlewareExtensions","label":"ReplayNonceMiddlewareExtensions","namespace":"AcmeServer.Nonce","type":"class","isPartOfCycle":false,"sccId":0,"group":"AcmeServer.Nonce","tooltip":"ReplayNonceMiddlewareExtensions"},{"id":"AcmeServer.Order.AcmeCrypto","label":"AcmeCrypto","namespace":"AcmeServer.Order","type":"class","isPartOfCycle":false,"sccId":0,"group":"AcmeServer.Order","tooltip":"AcmeCrypto"},{"id":"byte[]","label":"","namespace":"","type":"class","isPartOfCycle":false,"sccId":0,"group":"","tooltip":""},{"id":"AcmeServer.DTOs.Jwk","label":"Jwk","namespace":"AcmeServer.DTOs","type":"class","isPartOfCycle":false,"sccId":0,"group":"AcmeServer.DTOs","tooltip":"Jwk"},{"id":"AcmeServer.Models.AcmeAccount","label":"AcmeAccount","namespace":"AcmeServer.Models","type":"class","isPartOfCycle":false,"sccId":0,"group":"AcmeServer.Models","tooltip":"AcmeAccount"},{"id":"AcmeServer.DTOs.Identifier","label":"Identifier","namespace":"AcmeServer.DTOs","type":"class","isPartOfCycle":false,"sccId":0,"group":"AcmeServer.DTOs","tooltip":"Identifier"},{"id":"AcmeServer.Models.AcmeOrder","label":"AcmeOrder","namespace":"AcmeServer.Models","type":"class","isPartOfCycle":false,"sccId":0,"group":"AcmeServer.Models","tooltip":"AcmeOrder"},{"id":"AcmeServer.Order.InMemoryAcmeOrderRepository","label":"InMemoryAcmeOrderRepository","namespace":"AcmeServer.Order","type":"class","isPartOfCycle":false,"sccId":0,"group":"AcmeServer.Order","tooltip":"InMemoryAcmeOrderRepository"}],"edges":[{"id":"edge-AcmeServer.AcmeEndpointsMapper-AcmeServer.Nonce.NonceStore","source":"AcmeServer.AcmeEndpointsMapper","target":"AcmeServer.Nonce.NonceStore","weight":1,"isPartOfCycle":false,"sccId":0,"isCritical":false,"type":"class","relation":"relation-dependency-class","tooltip":"Weight: 1"},{"id":"edge-AcmeServer.AcmeEndpointsMapper-AcmeServer.DTOs.JwsRequest","source":"AcmeServer.AcmeEndpointsMapper","target":"AcmeServer.DTOs.JwsRequest","weight":1,"isPartOfCycle":false,"sccId":0,"isCritical":false,"type":"class","relation":"relation-dependency-class","tooltip":"Weight: 1"},{"id":"edge-AcmeServer.AcmeEndpointsMapper-AcmeServer.Stores.PskStore","source":"AcmeServer.AcmeEndpointsMapper","target":"AcmeServer.Stores.PskStore","weight":1,"isPartOfCycle":false,"sccId":0,"isCritical":false,"type":"class","relation":"relation-dependency-class","tooltip":"Weight: 1"},{"id":"edge-AcmeServer.AcmeEndpointsMapper-AcmeServer.Order.IAcmeOrderRepository","source":"AcmeServer.AcmeEndpointsMapper","target":"AcmeServer.Order.IAcmeOrderRepository","weight":1,"isPartOfCycle":false,"sccId":0,"isCritical":false,"type":"class","relation":"relation-dependency-interface","tooltip":"Weight: 1"},{"id":"edge-AcmeServer.AcmeEndpointsMapper-AcmeServer.AcmePkiEngine.IPkiEngine","source":"AcmeServer.AcmeEndpointsMapper","target":"AcmeServer.AcmePkiEngine.IPkiEngine","weight":1,"isPartOfCycle":false,"sccId":0,"isCritical":false,"type":"class","relation":"relation-dependency-interface","tooltip":"Weight: 1"},{"id":"edge-AcmeServer.AcmeEndpointsMapper-AcmeServer.DTOs.JwsHeader","source":"AcmeServer.AcmeEndpointsMapper","target":"AcmeServer.DTOs.JwsHeader","weight":1,"isPartOfCycle":false,"sccId":0,"isCritical":false,"type":"class","relation":"relation-dependency-class","tooltip":"Weight: 1"},{"id":"edge-AcmeServer.AcmePkiEngine.IPkiEngine-SignCsrResult","source":"AcmeServer.AcmePkiEngine.IPkiEngine","target":"SignCsrResult","weight":1,"isPartOfCycle":false,"sccId":0,"isCritical":false,"type":"class","relation":"relation-dependency-class","tooltip":"Weight: 1"},{"id":"edge-AcmeServer.AcmePkiEngine.PkiEngine-AcmeServer.AcmePkiEngine.IPkiEngine","source":"AcmeServer.AcmePkiEngine.PkiEngine","target":"AcmeServer.AcmePkiEngine.IPkiEngine","weight":1,"isPartOfCycle":false,"sccId":0,"isCritical":false,"type":"class","relation":"relation-inheritance-interface","tooltip":"Weight: 1"},{"id":"edge-AcmeServer.AcmePkiEngine.PkiEngine-ICertificateSigningEngine","source":"AcmeServer.AcmePkiEngine.PkiEngine","target":"ICertificateSigningEngine","weight":1,"isPartOfCycle":false,"sccId":0,"isCritical":false,"type":"class","relation":"relation-dependency-interface","tooltip":"Weight: 1"},{"id":"edge-AcmeServer.AcmePkiEngine.PkiEngine-ICertificateVerifier","source":"AcmeServer.AcmePkiEngine.PkiEngine","target":"ICertificateVerifier","weight":1,"isPartOfCycle":false,"sccId":0,"isCritical":false,"type":"class","relation":"relation-dependency-interface","tooltip":"Weight: 1"},{"id":"edge-AcmeServer.AcmePkiEngine.PkiEngine-ICertificateExtractor","source":"AcmeServer.AcmePkiEngine.PkiEngine","target":"ICertificateExtractor","weight":1,"isPartOfCycle":false,"sccId":0,"isCritical":false,"type":"class","relation":"relation-dependency-interface","tooltip":"Weight: 1"},{"id":"edge-AcmeServer.AcmePkiEngine.PkiEngine-AcmeServer.Settings.AcmeSettings","source":"AcmeServer.AcmePkiEngine.PkiEngine","target":"AcmeServer.Settings.AcmeSettings","weight":1,"isPartOfCycle":false,"sccId":0,"isCritical":false,"type":"class","relation":"relation-dependency-class","tooltip":"Weight: 1"},{"id":"edge-AcmeServer.AcmePkiEngine.PkiEngine-AcmeServer.Order.IAcmeOrderRepository","source":"AcmeServer.AcmePkiEngine.PkiEngine","target":"AcmeServer.Order.IAcmeOrderRepository","weight":1,"isPartOfCycle":false,"sccId":0,"isCritical":false,"type":"class","relation":"relation-dependency-interface","tooltip":"Weight: 1"},{"id":"edge-AcmeServer.AcmePkiEngine.PkiEngine-ICertificateSigningEngine","source":"AcmeServer.AcmePkiEngine.PkiEngine","target":"ICertificateSigningEngine","weight":1,"isPartOfCycle":false,"sccId":0,"isCritical":false,"type":"class","relation":"relation-dependency-interface","tooltip":"Weight: 1"},{"id":"edge-AcmeServer.AcmePkiEngine.PkiEngine-ICertificateVerifier","source":"AcmeServer.AcmePkiEngine.PkiEngine","target":"ICertificateVerifier","weight":1,"isPartOfCycle":false,"sccId":0,"isCritical":false,"type":"class","relation":"relation-dependency-interface","tooltip":"Weight: 1"},{"id":"edge-AcmeServer.AcmePkiEngine.PkiEngine-ICertificateExtractor","source":"AcmeServer.AcmePkiEngine.PkiEngine","target":"ICertificateExtractor","weight":1,"isPartOfCycle":false,"sccId":0,"isCritical":false,"type":"class","relation":"relation-dependency-interface","tooltip":"Weight: 1"},{"id":"edge-AcmeServer.AcmePkiEngine.PkiEngine-AcmeServer.Order.IAcmeOrderRepository","source":"AcmeServer.AcmePkiEngine.PkiEngine","target":"AcmeServer.Order.IAcmeOrderRepository","weight":1,"isPartOfCycle":false,"sccId":0,"isCritical":false,"type":"class","relation":"relation-dependency-interface","tooltip":"Weight: 1"},{"id":"edge-AcmeServer.AcmePkiEngine.PkiEngine-AcmeServer.Settings.AcmeSettings","source":"AcmeServer.AcmePkiEngine.PkiEngine","target":"AcmeServer.Settings.AcmeSettings","weight":1,"isPartOfCycle":false,"sccId":0,"isCritical":false,"type":"class","relation":"relation-dependency-class","tooltip":"Weight: 1"},{"id":"edge-AcmeServer.AcmePkiEngine.PkiEngine-SignCsrResult","source":"AcmeServer.AcmePkiEngine.PkiEngine","target":"SignCsrResult","weight":1,"isPartOfCycle":false,"sccId":0,"isCritical":false,"type":"class","relation":"relation-dependency-class","tooltip":"Weight: 1"},{"id":"edge-AcmeServer.AcmePkiEngine.PkiEngine-SignCsrRequest","source":"AcmeServer.AcmePkiEngine.PkiEngine","target":"SignCsrRequest","weight":1,"isPartOfCycle":false,"sccId":0,"isCritical":false,"type":"class","relation":"relation-dependency-class","tooltip":"Weight: 1"},{"id":"edge-AcmeServer.AcmeServicesExtensions-AcmeServer.Stores.PskStore","source":"AcmeServer.AcmeServicesExtensions","target":"AcmeServer.Stores.PskStore","weight":1,"isPartOfCycle":false,"sccId":0,"isCritical":false,"type":"class","relation":"relation-dependency-class","tooltip":"Weight: 1"},{"id":"edge-AcmeServer.Settings.AcmeSettings-AcmeServer.Settings.PFXSettings","source":"AcmeServer.Settings.AcmeSettings","target":"AcmeServer.Settings.PFXSettings","weight":1,"isPartOfCycle":false,"sccId":0,"isCritical":false,"type":"class","relation":"relation-dependency-class","tooltip":"Weight: 1"},{"id":"edge-AcmeServer.Nonce.ReplayNonceMiddleware-AcmeServer.Nonce.NonceStore","source":"AcmeServer.Nonce.ReplayNonceMiddleware","target":"AcmeServer.Nonce.NonceStore","weight":1,"isPartOfCycle":false,"sccId":0,"isCritical":false,"type":"class","relation":"relation-dependency-class","tooltip":"Weight: 1"},{"id":"edge-AcmeServer.Order.AcmeCrypto-AcmeServer.DTOs.JwsHeader","source":"AcmeServer.Order.AcmeCrypto","target":"AcmeServer.DTOs.JwsHeader","weight":1,"isPartOfCycle":false,"sccId":0,"isCritical":false,"type":"class","relation":"relation-dependency-class","tooltip":"Weight: 1"},{"id":"edge-AcmeServer.Order.AcmeCrypto-byte[]","source":"AcmeServer.Order.AcmeCrypto","target":"byte[]","weight":1,"isPartOfCycle":false,"sccId":0,"isCritical":false,"type":"class","relation":"relation-dependency-class","tooltip":"Weight: 1"},{"id":"edge-AcmeServer.Order.AcmeCrypto-AcmeServer.DTOs.JwsRequest","source":"AcmeServer.Order.AcmeCrypto","target":"AcmeServer.DTOs.JwsRequest","weight":1,"isPartOfCycle":false,"sccId":0,"isCritical":false,"type":"class","relation":"relation-dependency-class","tooltip":"Weight: 1"},{"id":"edge-AcmeServer.Order.AcmeCrypto-AcmeServer.DTOs.Jwk","source":"AcmeServer.Order.AcmeCrypto","target":"AcmeServer.DTOs.Jwk","weight":1,"isPartOfCycle":false,"sccId":0,"isCritical":false,"type":"class","relation":"relation-dependency-class","tooltip":"Weight: 1"},{"id":"edge-AcmeServer.Order.IAcmeOrderRepository-AcmeServer.DTOs.Jwk","source":"AcmeServer.Order.IAcmeOrderRepository","target":"AcmeServer.DTOs.Jwk","weight":1,"isPartOfCycle":false,"sccId":0,"isCritical":false,"type":"class","relation":"relation-dependency-class","tooltip":"Weight: 1"},{"id":"edge-AcmeServer.Order.IAcmeOrderRepository-AcmeServer.Models.AcmeAccount","source":"AcmeServer.Order.IAcmeOrderRepository","target":"AcmeServer.Models.AcmeAccount","weight":1,"isPartOfCycle":false,"sccId":0,"isCritical":false,"type":"class","relation":"relation-dependency-class","tooltip":"Weight: 1"},{"id":"edge-AcmeServer.Order.IAcmeOrderRepository-AcmeServer.DTOs.Identifier","source":"AcmeServer.Order.IAcmeOrderRepository","target":"AcmeServer.DTOs.Identifier","weight":1,"isPartOfCycle":false,"sccId":0,"isCritical":false,"type":"class","relation":"relation-dependency-class","tooltip":"Weight: 1"},{"id":"edge-AcmeServer.Order.IAcmeOrderRepository-AcmeServer.Models.AcmeOrder","source":"AcmeServer.Order.IAcmeOrderRepository","target":"AcmeServer.Models.AcmeOrder","weight":1,"isPartOfCycle":false,"sccId":0,"isCritical":false,"type":"class","relation":"relation-dependency-class","tooltip":"Weight: 1"},{"id":"edge-AcmeServer.Order.InMemoryAcmeOrderRepository-AcmeServer.Order.IAcmeOrderRepository","source":"AcmeServer.Order.InMemoryAcmeOrderRepository","target":"AcmeServer.Order.IAcmeOrderRepository","weight":1,"isPartOfCycle":false,"sccId":0,"isCritical":false,"type":"class","relation":"relation-inheritance-interface","tooltip":"Weight: 1"},{"id":"edge-AcmeServer.Order.InMemoryAcmeOrderRepository-AcmeServer.Models.AcmeOrder","source":"AcmeServer.Order.InMemoryAcmeOrderRepository","target":"AcmeServer.Models.AcmeOrder","weight":1,"isPartOfCycle":false,"sccId":0,"isCritical":false,"type":"class","relation":"relation-dependency-class","tooltip":"Weight: 1"},{"id":"edge-AcmeServer.Order.InMemoryAcmeOrderRepository-AcmeServer.Models.AcmeAccount","source":"AcmeServer.Order.InMemoryAcmeOrderRepository","target":"AcmeServer.Models.AcmeAccount","weight":1,"isPartOfCycle":false,"sccId":0,"isCritical":false,"type":"class","relation":"relation-dependency-class","tooltip":"Weight: 1"},{"id":"edge-AcmeServer.Order.InMemoryAcmeOrderRepository-AcmeServer.DTOs.Jwk","source":"AcmeServer.Order.InMemoryAcmeOrderRepository","target":"AcmeServer.DTOs.Jwk","weight":1,"isPartOfCycle":false,"sccId":0,"isCritical":false,"type":"class","relation":"relation-dependency-class","tooltip":"Weight: 1"},{"id":"edge-AcmeServer.Order.InMemoryAcmeOrderRepository-AcmeServer.Models.AcmeAccount","source":"AcmeServer.Order.InMemoryAcmeOrderRepository","target":"AcmeServer.Models.AcmeAccount","weight":1,"isPartOfCycle":false,"sccId":0,"isCritical":false,"type":"class","relation":"relation-dependency-class","tooltip":"Weight: 1"},{"id":"edge-AcmeServer.Order.InMemoryAcmeOrderRepository-AcmeServer.Models.AcmeAccount","source":"AcmeServer.Order.InMemoryAcmeOrderRepository","target":"AcmeServer.Models.AcmeAccount","weight":1,"isPartOfCycle":false,"sccId":0,"isCritical":false,"type":"class","relation":"relation-dependency-class","tooltip":"Weight: 1"},{"id":"edge-AcmeServer.Order.InMemoryAcmeOrderRepository-AcmeServer.DTOs.Identifier","source":"AcmeServer.Order.InMemoryAcmeOrderRepository","target":"AcmeServer.DTOs.Identifier","weight":1,"isPartOfCycle":false,"sccId":0,"isCritical":false,"type":"class","relation":"relation-dependency-class","tooltip":"Weight: 1"},{"id":"edge-AcmeServer.Order.InMemoryAcmeOrderRepository-AcmeServer.Models.AcmeOrder","source":"AcmeServer.Order.InMemoryAcmeOrderRepository","target":"AcmeServer.Models.AcmeOrder","weight":1,"isPartOfCycle":false,"sccId":0,"isCritical":false,"type":"class","relation":"relation-dependency-class","tooltip":"Weight: 1"},{"id":"edge-AcmeServer.Order.InMemoryAcmeOrderRepository-AcmeServer.Models.AcmeOrder","source":"AcmeServer.Order.InMemoryAcmeOrderRepository","target":"AcmeServer.Models.AcmeOrder","weight":1,"isPartOfCycle":false,"sccId":0,"isCritical":false,"type":"class","relation":"relation-dependency-class","tooltip":"Weight: 1"}]},"namespaceGraph":{"nodes":[{"id":"AcmeServer","label":"AcmeServer","namespace":"AcmeServer","type":"namespace","isPartOfCycle":false,"sccId":0,"group":"AcmeServer","tooltip":"Namespace AcmeServer"},{"id":"AcmeServer.Nonce","label":"AcmeServer.Nonce","namespace":"AcmeServer.Nonce","type":"namespace","isPartOfCycle":false,"sccId":0,"group":"AcmeServer.Nonce","tooltip":"Namespace AcmeServer.Nonce"},{"id":"AcmeServer.DTOs","label":"AcmeServer.DTOs","namespace":"AcmeServer.DTOs","type":"namespace","isPartOfCycle":false,"sccId":0,"group":"AcmeServer.DTOs","tooltip":"Namespace AcmeServer.DTOs"},{"id":"AcmeServer.Stores","label":"AcmeServer.Stores","namespace":"AcmeServer.Stores","type":"namespace","isPartOfCycle":false,"sccId":0,"group":"AcmeServer.Stores","tooltip":"Namespace AcmeServer.Stores"},{"id":"AcmeServer.Order","label":"AcmeServer.Order","namespace":"AcmeServer.Order","type":"namespace","isPartOfCycle":false,"sccId":0,"group":"AcmeServer.Order","tooltip":"Namespace AcmeServer.Order"},{"id":"AcmeServer.AcmePkiEngine","label":"AcmeServer.AcmePkiEngine","namespace":"AcmeServer.AcmePkiEngine","type":"namespace","isPartOfCycle":false,"sccId":0,"group":"AcmeServer.AcmePkiEngine","tooltip":"Namespace AcmeServer.AcmePkiEngine"},{"id":"\u003Cglobal namespace\u003E","label":"\u003Cglobal namespace\u003E","namespace":"\u003Cglobal namespace\u003E","type":"namespace","isPartOfCycle":false,"sccId":0,"group":"\u003Cglobal namespace\u003E","tooltip":"Namespace \u003Cglobal namespace\u003E"},{"id":"AcmeServer.Settings","label":"AcmeServer.Settings","namespace":"AcmeServer.Settings","type":"namespace","isPartOfCycle":false,"sccId":0,"group":"AcmeServer.Settings","tooltip":"Namespace AcmeServer.Settings"},{"id":"","label":"\u003Croot\u003E","namespace":"","type":"namespace","isPartOfCycle":false,"sccId":0,"group":"","tooltip":"Namespace "},{"id":"AcmeServer.Models","label":"AcmeServer.Models","namespace":"AcmeServer.Models","type":"namespace","isPartOfCycle":false,"sccId":0,"group":"AcmeServer.Models","tooltip":"Namespace AcmeServer.Models"}],"edges":[{"id":"edge-AcmeServer-AcmeServer.Nonce","source":"AcmeServer","target":"AcmeServer.Nonce","weight":1,"isPartOfCycle":false,"sccId":0,"isCritical":false,"type":"namespace","relation":"relation-namespace","tooltip":"Namespace dependency AcmeServer \u2192 AcmeServer.Nonce | Weight: 1"},{"id":"edge-AcmeServer-AcmeServer.DTOs","source":"AcmeServer","target":"AcmeServer.DTOs","weight":2,"isPartOfCycle":false,"sccId":0,"isCritical":false,"type":"namespace","relation":"relation-namespace","tooltip":"Namespace dependency AcmeServer \u2192 AcmeServer.DTOs | Weight: 2"},{"id":"edge-AcmeServer-AcmeServer.Stores","source":"AcmeServer","target":"AcmeServer.Stores","weight":2,"isPartOfCycle":false,"sccId":0,"isCritical":false,"type":"namespace","relation":"relation-namespace","tooltip":"Namespace dependency AcmeServer \u2192 AcmeServer.Stores | Weight: 2"},{"id":"edge-AcmeServer-AcmeServer.Order","source":"AcmeServer","target":"AcmeServer.Order","weight":1,"isPartOfCycle":false,"sccId":0,"isCritical":false,"type":"namespace","relation":"relation-namespace","tooltip":"Namespace dependency AcmeServer \u2192 AcmeServer.Order | Weight: 1"},{"id":"edge-AcmeServer-AcmeServer.AcmePkiEngine","source":"AcmeServer","target":"AcmeServer.AcmePkiEngine","weight":1,"isPartOfCycle":false,"sccId":0,"isCritical":false,"type":"namespace","relation":"relation-namespace","tooltip":"Namespace dependency AcmeServer \u2192 AcmeServer.AcmePkiEngine | Weight: 1"},{"id":"edge-AcmeServer.AcmePkiEngine-\u003Cglobal_namespace\u003E","source":"AcmeServer.AcmePkiEngine","target":"\u003Cglobal namespace\u003E","weight":9,"isPartOfCycle":false,"sccId":0,"isCritical":false,"type":"namespace","relation":"relation-namespace","tooltip":"Namespace dependency AcmeServer.AcmePkiEngine \u2192 \u003Cglobal namespace\u003E | Weight: 9"},{"id":"edge-AcmeServer.AcmePkiEngine-AcmeServer.Settings","source":"AcmeServer.AcmePkiEngine","target":"AcmeServer.Settings","weight":2,"isPartOfCycle":false,"sccId":0,"isCritical":false,"type":"namespace","relation":"relation-namespace","tooltip":"Namespace dependency AcmeServer.AcmePkiEngine \u2192 AcmeServer.Settings | Weight: 2"},{"id":"edge-AcmeServer.AcmePkiEngine-AcmeServer.Order","source":"AcmeServer.AcmePkiEngine","target":"AcmeServer.Order","weight":2,"isPartOfCycle":false,"sccId":0,"isCritical":false,"type":"namespace","relation":"relation-namespace","tooltip":"Namespace dependency AcmeServer.AcmePkiEngine \u2192 AcmeServer.Order | Weight: 2"},{"id":"edge-AcmeServer.Order-AcmeServer.DTOs","source":"AcmeServer.Order","target":"AcmeServer.DTOs","weight":7,"isPartOfCycle":false,"sccId":0,"isCritical":false,"type":"namespace","relation":"relation-namespace","tooltip":"Namespace dependency AcmeServer.Order \u2192 AcmeServer.DTOs | Weight: 7"},{"id":"edge-AcmeServer.Order-","source":"AcmeServer.Order","target":"","weight":1,"isPartOfCycle":false,"sccId":0,"isCritical":false,"type":"namespace","relation":"relation-namespace","tooltip":"Namespace dependency AcmeServer.Order \u2192  | Weight: 1"},{"id":"edge-AcmeServer.Order-AcmeServer.Models","source":"AcmeServer.Order","target":"AcmeServer.Models","weight":8,"isPartOfCycle":false,"sccId":0,"isCritical":false,"type":"namespace","relation":"relation-namespace","tooltip":"Namespace dependency AcmeServer.Order \u2192 AcmeServer.Models | Weight: 8"}]},"cycles":[],"defaultView":"namespace","highlightCycles":true};
+const state = {
+  currentView: graphPayload.defaultView,
+  selectedNamespace: null,
+  selectedCycle: null,
+  nodePositions: {}
+};
+
+const svg = document.getElementById('graphCanvas');
+const cycleList = document.getElementById('cycleList');
+const toggleViewButton = document.getElementById('toggleViewButton');
+const saveLayoutButton = document.getElementById('saveLayoutButton');
+const exportLayoutButton = document.getElementById('exportLayoutButton');
+const importLayoutButton = document.getElementById('importLayoutButton');
+const resetLayoutButton = document.getElementById('resetLayoutButton');
+const importLayoutInput = document.getElementById('importLayoutInput');
+
+const dragState = {
+  activeNodeId: null,
+  startX: 0,
+  startY: 0,
+  originalX: 0,
+  originalY: 0
+};
+
+svg.addEventListener('pointermove', dragNode);
+svg.addEventListener('pointerup', endDrag);
+svg.addEventListener('pointerleave', endDrag);
+
+function getSvgCoordinates(event) {
+  const point = svg.createSVGPoint();
+  point.x = event.clientX;
+  point.y = event.clientY;
+  return point.matrixTransform(svg.getScreenCTM().inverse());
+}
+
+function startDrag(event, nodeId) {
+  if (event.button !== 0) return;
+  event.preventDefault();
+  svg.setPointerCapture(event.pointerId);
+  const position = getSvgCoordinates(event);
+  dragState.activeNodeId = nodeId;
+  dragState.startX = position.x;
+  dragState.startY = position.y;
+  const saved = state.nodePositions[nodeId];
+  dragState.originalX = saved ? saved.x : 0;
+  dragState.originalY = saved ? saved.y : 0;
+  const group = svg.querySelector('[data-id="' + nodeId + '"]');
+  if (group) {
+    group.classList.add('dragging');
+  }
+}
+
+function dragNode(event) {
+  if (!dragState.activeNodeId) return;
+  const position = getSvgCoordinates(event);
+  const x = dragState.originalX + (position.x - dragState.startX);
+  const y = dragState.originalY + (position.y - dragState.startY);
+  const nodeId = dragState.activeNodeId;
+  state.nodePositions[nodeId] = { ...state.nodePositions[nodeId], x, y };
+  const group = svg.querySelector('[data-id="' + nodeId + '"]');
+  if (group) {
+    group.setAttribute('transform', 'translate(' + x + ', ' + y + ')');
+  }
+  updateEdgesForNode(nodeId);
+  updateSvgCanvasSize();
+}
+
+function endDrag(event) {
+  if (!dragState.activeNodeId) return;
+  const group = svg.querySelector('[data-id="' + dragState.activeNodeId + '"]');
+  if (group) {
+    group.classList.remove('dragging');
+  }
+  dragState.activeNodeId = null;
+  svg.releasePointerCapture(event.pointerId);
+}
+
+function computeLayoutKey() {
+  const str = JSON.stringify(graphPayload);
+  let hash = 5381;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) + hash) + str.charCodeAt(i);
+  }
+  return 'cyclyst-layout-' + (hash >>> 0);
+}
+
+function saveLayout() {
+  try {
+    const key = computeLayoutKey();
+    localStorage.setItem(key, JSON.stringify(state.nodePositions));
+    console.log('Layout saved to', key);
+  } catch (e) {
+    console.warn('Failed to save layout', e);
+  }
+}
+
+function loadLayout() {
+  try {
+    const key = computeLayoutKey();
+    const raw = localStorage.getItem(key);
+    if (!raw) return false;
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object') {
+      state.nodePositions = parsed;
+      console.log('Layout loaded from', key);
+      return true;
+    }
+  } catch (e) {
+    console.warn('Failed to load layout', e);
+  }
+  return false;
+}
+
+function exportLayout() {
+  try {
+    const key = computeLayoutKey();
+    const data = JSON.stringify(state.nodePositions, null, 2);
+    const blob = new Blob([data], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${key}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    console.warn('Failed to export layout', e);
+  }
+}
+
+function importLayoutFile(file) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const parsed = JSON.parse(reader.result);
+      if (parsed && typeof parsed === 'object') {
+        state.nodePositions = parsed;
+        saveLayout();
+        render();
+      }
+    } catch (e) {
+      console.warn('Invalid layout file', e);
+    }
+  };
+  reader.readAsText(file);
+}
+
+function resetLayout() {
+  try {
+    const key = computeLayoutKey();
+    localStorage.removeItem(key);
+    state.nodePositions = {};
+    render();
+    console.log('Layout reset for', key);
+  } catch (e) {
+    console.warn('Failed to reset layout', e);
+  }
+}
+
+function updateEdgesForNode(nodeId) {
+  const node = state.nodePositions[nodeId];
+  if (!node) return;
+  const connectedEdges = svg.querySelectorAll('path.edge[data-source="' + nodeId + '"], path.edge[data-target="' + nodeId + '"]');
+  connectedEdges.forEach(path => {
+    const sourceId = path.getAttribute('data-source');
+    const targetId = path.getAttribute('data-target');
+    if (!sourceId || !targetId) return;
+    const source = state.nodePositions[sourceId];
+    const target = state.nodePositions[targetId];
+    if (!source || !target) return;
+    const x1 = source.x + source.width;
+    const y1 = source.y + source.height / 2;
+    const x2 = target.x;
+    
+    // Position arrows at different points on target box based on relationship type
+    const relationClass = path.getAttribute('class');
+    let y2;
+    if (relationClass.includes('relation-inheritance')) {
+      y2 = target.y + (target.height * 0.15); // Top area for inheritance
+    } else {
+      y2 = target.y + (target.height * 0.85); // Bottom area for dependencies
+    }
+    
+    const direction = x2 >= x1 ? 1 : -1;
+    const endX = x2 - (direction * 10);
+    const controlX = x1 + direction * Math.max(100, Math.abs(endX - x1) / 2);
+    path.setAttribute('d', `M${x1},${y1} C${controlX},${y1} ${controlX},${y2} ${endX},${y2}`);
+  });
+}
+
+function getCanvasBounds(positions) {
+  if (!positions || positions.length === 0) {
+    return { minX: 0, minY: 0, maxX: 1200, maxY: 900 };
+  }
+
+  const minX = Math.min(...positions.map(node => node.x));
+  const minY = Math.min(...positions.map(node => node.y));
+  const maxX = Math.max(...positions.map(node => node.x + node.width));
+  const maxY = Math.max(...positions.map(node => node.y + node.height));
+
+  return { minX, minY, maxX, maxY };
+}
+
+function updateSvgCanvasSize(positions) {
+  const bounds = getCanvasBounds(positions || Object.values(state.nodePositions));
+  const marginX = 180;
+  const marginY = 120;
+  const minWidth = 1200;
+  const minHeight = 900;
+  const originX = Math.min(bounds.minX, 0);
+  const originY = Math.min(bounds.minY, 0);
+  const width = Math.max(bounds.maxX - originX + marginX, minWidth);
+  const height = Math.max(bounds.maxY - originY + marginY, minHeight);
+
+  svg.setAttribute('viewBox', `${originX} ${originY} ${width} ${height}`);
+  svg.style.minWidth = `${width}px`;
+  svg.style.minHeight = `${height}px`;
+}
+
+function render() {
+  svg.innerHTML = '';
+  const graph = state.currentView === 'namespace' ? graphPayload.namespaceGraph : graphPayload.classGraph;
+  const nodes = state.currentView === 'class' && state.selectedNamespace
+    ? graph.nodes.filter(node => node.group === state.selectedNamespace)
+    : graph.nodes;
+  const nodeMap = new Map(nodes.map(node => [node.id, node]));
+  const edges = graph.edges.filter(edge => nodeMap.has(edge.source) && nodeMap.has(edge.target));
+
+  const dependencyCounts = new Map(nodes.map(node => [node.id, 0]));
+  edges.forEach(edge => {
+    dependencyCounts.set(edge.source, (dependencyCounts.get(edge.source) || 0) + 1);
+  });
+
+  const evaluatedNodes = nodes.map(node => ({
+    ...node,
+    dependencyCount: dependencyCounts.get(node.id) || 0
+  }));
+
+  const grouped = [...new Set(evaluatedNodes.map(node => node.group))]
+    .sort((leftGroup, rightGroup) => {
+      const leftCount = evaluatedNodes.filter(node => node.group === leftGroup).reduce((sum, node) => sum + node.dependencyCount, 0);
+      const rightCount = evaluatedNodes.filter(node => node.group === rightGroup).reduce((sum, node) => sum + node.dependencyCount, 0);
+      if (rightCount !== leftCount) return rightCount - leftCount;
+      return leftGroup.localeCompare(rightGroup);
+    });
+
+  const measureText = (value) => {
+    const measure = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    measure.setAttribute('font-size', '12px');
+    measure.setAttribute('visibility', 'hidden');
+    measure.textContent = value;
+    svg.appendChild(measure);
+    const width = measure.getBBox().width;
+    svg.removeChild(measure);
+    return width;
+  };
+
+  const wrapText = (text, maxWidth) => {
+    const words = text.split(' ');
+    const lines = [];
+    let currentLine = '';
+
+    const appendLine = () => {
+      if (currentLine) {
+        lines.push(currentLine);
+        currentLine = '';
+      }
+    };
+
+    words.forEach(word => {
+      const testLine = currentLine ? `${currentLine} ${word}` : word;
+      const width = measureText(testLine);
+      if (width > maxWidth && currentLine) {
+        appendLine();
+        currentLine = word;
+      } else {
+        currentLine = testLine;
+      }
+    });
+
+    if (currentLine) {
+      lines.push(currentLine);
+    }
+
+    return lines.length ? lines : [''];
+  };
+
+  const sizedNodes = evaluatedNodes.map(node => {
+    const lines = wrapText(node.label, 220);
+    const width = Math.max(180, Math.min(420, Math.max(...lines.map(line => measureText(line))) + 28));
+    const height = Math.max(42, 18 + lines.length * 18);
+    return { ...node, lines, width, height };
+  });
+
+  const columnWidths = grouped.map(group => {
+    const groupNodes = sizedNodes.filter(n => n.group === group);
+    return Math.max(220, Math.max(...groupNodes.map(n => n.width)) + 30);
+  });
+
+  const xOffsets = grouped.reduce((acc, group, index) => {
+    if (index === 0) {
+      acc[group] = 120;
+    } else {
+      const prevGroup = grouped[index - 1];
+      acc[group] = acc[prevGroup] + columnWidths[index - 1] + 40;
+    }
+    return acc;
+  }, {});
+
+  const nodesByGroup = new Map();
+  grouped.forEach(group => {
+    const groupNodes = sizedNodes
+      .filter(n => n.group === group)
+      .sort((left, right) => {
+        if (right.dependencyCount !== left.dependencyCount) return right.dependencyCount - left.dependencyCount;
+        return left.label.localeCompare(right.label);
+      });
+    nodesByGroup.set(group, groupNodes);
+  });
+
+  const positions = [];
+  nodesByGroup.forEach((groupNodes, group) => {
+    const x = xOffsets[group];
+    groupNodes.forEach((node, nodeIndex) => {
+      positions.push({ ...node, x, y: 80 + nodeIndex * (node.height + 40) });
+    });
+  });
+
+  positions.forEach(node => {
+    const saved = state.nodePositions[node.id];
+    if (saved) {
+      node.x = saved.x;
+      node.y = saved.y;
+      node.width = saved.width || node.width;
+      node.height = saved.height || node.height;
+    }
+    state.nodePositions[node.id] = {
+      x: node.x,
+      y: node.y,
+      width: node.width,
+      height: node.height
+    };
+  });
+
+  updateSvgCanvasSize(positions);
+  svg.setAttribute('preserveAspectRatio', 'xMinYMin meet');
+
+  const positionById = new Map(positions.map(node => [node.id, node]));
+
+  const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+  const openMarker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+  openMarker.setAttribute('id', 'arrow-open');
+  openMarker.setAttribute('markerWidth', '8');
+  openMarker.setAttribute('markerHeight', '8');
+  openMarker.setAttribute('refX', '8');
+  openMarker.setAttribute('refY', '4');
+  openMarker.setAttribute('orient', 'auto');
+  openMarker.setAttribute('markerUnits', 'strokeWidth');
+  const openArrowPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  openArrowPath.setAttribute('d', 'M0,0 L8,4 L0,8');
+  openArrowPath.setAttribute('fill', 'none');
+  openArrowPath.setAttribute('stroke', 'currentColor');
+  openArrowPath.setAttribute('stroke-width', '1.5');
+  openMarker.appendChild(openArrowPath);
+  defs.appendChild(openMarker);
+
+  const filledMarker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+  filledMarker.setAttribute('id', 'arrow-filled');
+  filledMarker.setAttribute('markerWidth', '8');
+  filledMarker.setAttribute('markerHeight', '8');
+  filledMarker.setAttribute('refX', '8');
+  filledMarker.setAttribute('refY', '4');
+  filledMarker.setAttribute('orient', 'auto');
+  filledMarker.setAttribute('markerUnits', 'strokeWidth');
+  const filledArrowPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  filledArrowPath.setAttribute('d', 'M0,0 L8,4 L0,8 Z');
+  filledArrowPath.setAttribute('fill', 'none');
+  filledArrowPath.setAttribute('stroke', 'currentColor');
+  filledArrowPath.setAttribute('stroke-width', '1.5');
+  filledMarker.appendChild(filledArrowPath);
+  defs.appendChild(filledMarker);
+
+  svg.appendChild(defs);
+
+  edges.forEach(edge => {
+    const source = positionById.get(edge.source);
+    const target = positionById.get(edge.target);
+    if (!source || !target) return;
+
+    const x1 = source.x + source.width;
+    const y1 = source.y + source.height / 2;
+    const x2 = target.x;
+    
+    // Position arrows at different points on target box based on relationship type
+    // Inheritance arrows arrive at the top, dependencies at the bottom
+    let y2;
+    if (edge.relation.startsWith('relation-inheritance')) {
+      y2 = target.y + (target.height * 0.15); // Top area for inheritance
+    } else {
+      y2 = target.y + (target.height * 0.85); // Bottom area for dependencies
+    }
+    
+    const direction = x2 >= x1 ? 1 : -1;
+    const endX = x2 - (direction * 10);
+    const controlX = x1 + direction * Math.max(100, Math.abs(endX - x1) / 2);
+
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    line.setAttribute('d', `M${x1},${y1} C${controlX},${y1} ${controlX},${y2} ${endX},${y2}`);
+    line.setAttribute('class', `edge ${edge.type} ${edge.relation} ${edge.isPartOfCycle ? 'cycle' : ''}`);
+    line.setAttribute('stroke-width', edge.type === 'namespace' ? `${Math.min(1 + edge.weight, 8)}` : (edge.isPartOfCycle ? '2.5' : '1.5'));
+    line.setAttribute('data-scc-id', edge.sccId);
+    line.setAttribute('data-weight', String(edge.weight));
+    line.setAttribute('data-source', edge.source);
+    line.setAttribute('data-target', edge.target);
+    const markerId = edge.relation.startsWith('relation-inheritance') ? 'arrow-filled' : 'arrow-open';
+    line.setAttribute('marker-end', `url(#${markerId})`);
+
+    line.addEventListener('mouseover', () => line.classList.add('hovered'));
+    line.addEventListener('mouseout', () => line.classList.remove('hovered'));
+
+    const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+    title.textContent = edge.tooltip;
+    line.appendChild(title);
+    svg.appendChild(line);
+  });
+
+  positions.forEach(node => {
+    const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    group.setAttribute('class', `node ${node.type} ${node.isPartOfCycle ? 'cycle' : ''}`);
+    group.setAttribute('transform', `translate(${node.x}, ${node.y})`);
+    group.setAttribute('data-id', node.id);
+    group.setAttribute('data-scc-id', node.sccId);
+    group.setAttribute('data-group', node.group);
+
+    const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    rect.setAttribute('width', String(node.width));
+    rect.setAttribute('height', String(node.height));
+    group.appendChild(rect);
+
+    const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    text.setAttribute('x', '10');
+    text.setAttribute('y', '18');
+    node.lines.forEach((lineText, index) => {
+      const tspan = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+      tspan.setAttribute('x', '10');
+      tspan.setAttribute('dy', index === 0 ? '0' : '18');
+      tspan.textContent = lineText;
+      text.appendChild(tspan);
+    });
+    group.appendChild(text);
+
+    const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+    title.textContent = node.tooltip;
+    group.appendChild(title);
+
+    group.addEventListener('pointerdown', event => startDrag(event, node.id));
+    group.addEventListener('click', () => onNodeClicked(node));
+    svg.appendChild(group);
+  });
+
+  applyCycleSelection();
+}
+
+function onNodeClicked(node) {
+  if (state.currentView === 'namespace') {
+    state.currentView = 'class';
+    state.selectedNamespace = node.group;
+    toggleViewButton.textContent = 'View: Class Level';
+    render();
+  }
+}
+
+function renderCycleList() {
+  cycleList.innerHTML = '';
+  graphPayload.cycles.forEach(cycle => {
+    const item = document.createElement('div');
+    item.className = 'cycle-item';
+    item.dataset.cycleId = String(cycle.cycleId);
+    item.innerHTML = `<strong>${cycle.label}</strong><div>${cycle.path.join(' → ')}</div>`;
+    item.addEventListener('click', () => {
+      state.selectedCycle = cycle.cycleId;
+      graphPayload.cycles.forEach((_unused, index) => {
+        const listItem = cycleList.children[index];
+        listItem.classList.toggle('selected', listItem.dataset.cycleId === String(cycle.cycleId));
+      });
+      applyCycleSelection();
+    });
+    cycleList.appendChild(item);
+  });
+}
+
+function applyCycleSelection() {
+  const highlighted = String(state.selectedCycle ?? '0');
+  svg.querySelectorAll('[data-scc-id]').forEach(element => {
+    element.classList.toggle('highlighted', element.getAttribute('data-scc-id') === highlighted && highlighted !== '0');
+  });
+}
+
+toggleViewButton.addEventListener('click', () => {
+  state.currentView = state.currentView === 'namespace' ? 'class' : 'namespace';
+  state.selectedNamespace = null;
+  toggleViewButton.textContent = state.currentView === 'namespace' ? 'View: Namespace Level' : 'View: Class Level';
+  render();
+});
+
+// wire buttons and load saved layout
+saveLayoutButton.addEventListener('click', () => { saveLayout(); });
+exportLayoutButton.addEventListener('click', () => { exportLayout(); });
+importLayoutButton.addEventListener('click', () => { importLayoutInput.click(); });
+resetLayoutButton.addEventListener('click', () => { resetLayout(); });
+importLayoutInput.addEventListener('change', (ev) => {
+  const files = ev.target.files || ev.srcElement.files;
+  if (files && files.length) importLayoutFile(files[0]);
+});
+
+try { loadLayout(); } catch (e) { /* ignore */ }
+
+renderCycleList();
+render();
+
+// auto-save on pointerup (when a drag ends)
+svg.addEventListener('pointerup', (e) => { saveLayout(); });
+</script>
+</body>
+</html>

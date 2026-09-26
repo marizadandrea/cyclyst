@@ -261,6 +261,46 @@ public class ClassC { }
     }
 
     [Fact]
+    public async Task Should_Detect_Endpoint_Handler_Lambda_Parameters_As_Dependencies()
+    {
+        var sourceCode = @"
+using System;
+using System.Threading.Tasks;
+namespace AcmeServer;
+public interface IEndpointRouteBuilder { }
+public sealed class HttpContext { }
+public sealed class PskStore { }
+public sealed class SimpleHandlerDependency { }
+public static class EndpointRouteBuilderExtensions
+{
+    public static void MapPost(this IEndpointRouteBuilder builder, string route, Func<HttpContext, PskStore, Task> handler) { }
+    public static void MapSimple(this IEndpointRouteBuilder builder, Func<SimpleHandlerDependency, Task> handler) { }
+}
+public static class AcmeEndpointsMapper
+{
+    public static IEndpointRouteBuilder MapAcmeEndpoints(this IEndpointRouteBuilder endpointRouteBuilder)
+    {
+        endpointRouteBuilder.MapPost(""/new-account"", async (HttpContext ctx, PskStore pskStore) => await Task.CompletedTask);
+        endpointRouteBuilder.MapSimple(dependency => Task.CompletedTask);
+        return endpointRouteBuilder;
+    }
+}";
+        var scanner = new RoslynSourceScanner();
+
+        var graph = await scanner.ScanAsync(sourceCode);
+
+        Assert.Contains(graph.Nodes, node => node.Id == "AcmeServer.PskStore");
+        Assert.Contains(graph.Edges, edge =>
+            edge.SourceId == "AcmeServer.AcmeEndpointsMapper" &&
+            edge.TargetId == "AcmeServer.PskStore" &&
+            edge.Relation == DependencyType.MethodParameter);
+        Assert.Contains(graph.Edges, edge =>
+            edge.SourceId == "AcmeServer.AcmeEndpointsMapper" &&
+            edge.TargetId == "AcmeServer.SimpleHandlerDependency" &&
+            edge.Relation == DependencyType.MethodParameter);
+    }
+
+    [Fact]
     public async Task Should_Detect_Method_Return_Type_And_Parameters_As_Dependencies()
     {
         var sourceCode = @"
