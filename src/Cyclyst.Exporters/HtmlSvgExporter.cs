@@ -181,20 +181,21 @@ public sealed class HtmlSvgExporter : IExporter
                 BuildEdgeTooltip(edge)))
             .ToList();
 
-        var namespaceNodes = classNodes
-            .GroupBy(node => node.Namespace)
-            .Select(group => new OutputNode(
-                group.Key,
-                string.IsNullOrWhiteSpace(group.Key) ? "<root>" : group.Key,
-                group.Key,
-                "namespace",
-                group.Any(node => node.IsPartOfCycle),
-                group.Where(node => node.IsPartOfCycle).Select(node => node.SccId).FirstOrDefault(),
-                group.Key,
-                $"Namespace {group.Key}"))
-            .ToList();
+        var namespaceGroups = classNodes
+          .GroupBy(node => node.Namespace)
+          .ToList();
+        var namespaceGraph = new DependencyGraph();
+        foreach (var group in namespaceGroups)
+        {
+          namespaceGraph.Nodes.Add(new NodeMetadata(
+            group.Key,
+            string.IsNullOrWhiteSpace(group.Key) ? "<root>" : group.Key,
+            ElementType.Namespace,
+            null,
+            group.Key));
+        }
 
-        var namespaceEdges = graph.Edges
+        var groupedNamespaceEdges = graph.Edges
             .Select(edge => new
             {
                 SourceNamespace = GetNodeNamespace(graph.Nodes.First(n => n.Id == edge.SourceId)),
@@ -203,26 +204,91 @@ public sealed class HtmlSvgExporter : IExporter
             })
             .Where(x => !string.Equals(x.SourceNamespace, x.TargetNamespace, StringComparison.OrdinalIgnoreCase))
             .GroupBy(x => (x.SourceNamespace, x.TargetNamespace))
-            .Select(group => new OutputEdge(
-                BuildNamespaceEdgeId(group.Key.SourceNamespace, group.Key.TargetNamespace),
-                group.Key.SourceNamespace,
-                group.Key.TargetNamespace,
-                group.Count(),
-                group.Any(x => x.edge.IsPartOfCycle),
-                group.Where(x => x.edge.IsPartOfCycle).Select(x => x.edge.SccId).FirstOrDefault(),
-                group.Any(x => x.edge.IsCritical),
-                "namespace",
-                "relation-namespace",
-                BuildNamespaceEdgeTooltip(group.Key.SourceNamespace, group.Key.TargetNamespace, group.Count())))
             .ToList();
 
-        var cycles = graph.Edges
+          foreach (var group in groupedNamespaceEdges)
+          {
+            namespaceGraph.Edges.Add(new EdgeMetadata(
+              group.Key.SourceNamespace,
+              group.Key.TargetNamespace,
+              DependencyType.MethodParameter,
+              Weight: group.Count()));
+          }
+
+          var classCycleIds = graph.Edges
             .Select(edge => edge.SccId)
             .Where(id => id > 0)
             .Distinct()
             .OrderBy(id => id)
+            .ToList();
+          var cycles = classCycleIds
             .Select(id => new CycleSummary(id, $"Cycle {id}", $"Cycle {id} highlighted in the diagram.",
                 graph.Nodes.Where(node => node.SccId == id).Select(node => node.Name).ToArray()))
+            .ToList();
+
+          var namespaceCycleIds = new Dictionary<string, int>();
+          var namespaceCycleResults = new TarjanCycleDetector().DetectCycles(namespaceGraph).ToList();
+          var firstNamespaceCycleId = classCycleIds.DefaultIfEmpty(0).Max() + 1;
+          for (var index = 0; index < namespaceCycleResults.Count; index++)
+          {
+            var cycleId = firstNamespaceCycleId + index;
+            var namespaceCycle = namespaceCycleResults[index];
+            var path = namespaceCycle.NodeIds
+              .Select(nodeId => namespaceGraph.Nodes.First(node => node.Id == nodeId).Name)
+              .ToArray();
+
+            foreach (var nodeId in namespaceCycle.NodeIds)
+            {
+              namespaceCycleIds[nodeId] = cycleId;
+            }
+
+            cycles.Add(new CycleSummary(
+              cycleId,
+              $"Namespace cycle {index + 1}",
+              $"Namespace dependency cycle: {string.Join(" → ", path)}",
+              path));
+          }
+
+          var namespaceNodes = namespaceGroups
+            .Select(group =>
+            {
+              var isNamespaceCycle = namespaceCycleIds.TryGetValue(group.Key, out var namespaceCycleId);
+              return new OutputNode(
+                group.Key,
+                string.IsNullOrWhiteSpace(group.Key) ? "<root>" : group.Key,
+                group.Key,
+                "namespace",
+                isNamespaceCycle || group.Any(node => node.IsPartOfCycle),
+                isNamespaceCycle
+                  ? namespaceCycleId
+                  : group.Where(node => node.IsPartOfCycle).Select(node => node.SccId).FirstOrDefault(),
+                group.Key,
+                $"Namespace {group.Key}");
+            })
+            .ToList();
+
+          var namespaceEdges = groupedNamespaceEdges
+            .Select(group =>
+            {
+              var isNamespaceCycle = namespaceCycleIds.TryGetValue(group.Key.SourceNamespace, out var sourceCycleId) &&
+                namespaceCycleIds.TryGetValue(group.Key.TargetNamespace, out var targetCycleId) &&
+                sourceCycleId == targetCycleId;
+              var isClassCycle = group.Any(item => item.edge.IsPartOfCycle);
+
+              return new OutputEdge(
+                BuildNamespaceEdgeId(group.Key.SourceNamespace, group.Key.TargetNamespace),
+                group.Key.SourceNamespace,
+                group.Key.TargetNamespace,
+                group.Count(),
+                isNamespaceCycle || isClassCycle,
+                isNamespaceCycle
+                  ? sourceCycleId
+                  : group.Where(item => item.edge.IsPartOfCycle).Select(item => item.edge.SccId).FirstOrDefault(),
+                isNamespaceCycle || group.Any(item => item.edge.IsCritical),
+                "namespace",
+                "relation-namespace",
+                BuildNamespaceEdgeTooltip(group.Key.SourceNamespace, group.Key.TargetNamespace, group.Count()));
+            })
             .ToList();
 
         return new GraphView(classNodes, classEdges, namespaceNodes, namespaceEdges, cycles);
