@@ -342,6 +342,47 @@ public class ClassB { }
     }
 
     [Fact]
+    public async Task Should_Detect_Static_Method_Call_As_Dependency()
+    {
+        var sourceCode = @"
+public class ClassA {
+    public bool Verify(string value) => AcmeCrypto.Verify(value);
+}
+public static class AcmeCrypto {
+    public static bool Verify(string value) => true;
+}
+";
+        var scanner = new RoslynSourceScanner();
+
+        var graph = await scanner.ScanAsync(sourceCode);
+
+        Assert.Contains(graph.Nodes, node => node.Id == "ClassA");
+        Assert.Contains(graph.Nodes, node => node.Id == "AcmeCrypto");
+        Assert.Contains(graph.Edges, edge =>
+            edge.SourceId == "ClassA" &&
+            edge.TargetId == "AcmeCrypto" &&
+            edge.Relation == DependencyType.LocalVariable);
+    }
+
+    [Fact]
+    public async Task Should_Not_Detect_Same_Class_Static_Method_Call_As_Dependency()
+    {
+        var sourceCode = @"
+public class ClassA {
+    public void InstanceMethod() => MyStaticMethod();
+    public static void MyStaticMethod() { }
+}
+";
+        var scanner = new RoslynSourceScanner();
+
+        var graph = await scanner.ScanAsync(sourceCode);
+
+        Assert.DoesNotContain(graph.Edges, edge =>
+            edge.SourceId == "ClassA" &&
+            edge.TargetId == "ClassA");
+    }
+
+    [Fact]
     public async Task Should_Detect_Service_Provider_GetService_Generic_Usage_As_Dependency()
     {
         var sourceCode = @"

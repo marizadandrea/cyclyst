@@ -150,6 +150,15 @@ public class DependencyHarvester : CSharpSyntaxWalker
             return;
         }
 
+        if (_semanticModel.GetSymbolInfo(node).Symbol is IMethodSymbol { IsStatic: true } methodSymbol)
+        {
+            var targetTypeId = GetTypeId(methodSymbol.ContainingType, node.Expression.ToString());
+            if (targetTypeId != _currentTypeId)
+            {
+                AddDependency(_currentTypeId, methodSymbol.ContainingType, node.Expression.ToString(), DependencyType.LocalVariable);
+            }
+        }
+
         if (IsServiceProviderGetServiceInvocation(node))
         {
             foreach (var typeArgument in node.ArgumentList == null ? Array.Empty<TypeSyntax>() : Array.Empty<TypeSyntax>())
