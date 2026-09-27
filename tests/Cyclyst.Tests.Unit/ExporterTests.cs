@@ -123,6 +123,64 @@ public class ExporterTests
     }
 
     [Fact]
+    public async Task ExportAsync_OmitsEmptyNamespaceGroupAndItsEdges()
+    {
+        var graph = new DependencyGraph();
+        graph.Nodes.Add(new NodeMetadata("Global", "GlobalType", ElementType.Class, null));
+        graph.Nodes.Add(new NodeMetadata("Acme", "Acme.Type", ElementType.Class, null, "Acme"));
+        graph.Nodes.Add(new NodeMetadata("Contoso", "Contoso.Type", ElementType.Class, null, "Contoso"));
+        graph.Nodes.Add(new NodeMetadata("AcmeOther", "Acme.Other", ElementType.Class, null, "Acme"));
+        graph.Edges.Add(new EdgeMetadata("Global", "Acme", DependencyType.MethodParameter));
+        graph.Edges.Add(new EdgeMetadata("Contoso", "AcmeOther", DependencyType.MethodParameter));
+
+        var outputPath = Path.Combine(Path.GetTempPath(), "cyclyst-export-empty-namespace.html");
+        await new HtmlSvgExporter().ExportAsync(graph, outputPath, new ExportOptions { Level = GroupingLevel.Namespace });
+
+        using var payload = ReadGraphPayload(await File.ReadAllTextAsync(outputPath));
+        var namespaceGraph = payload.RootElement.GetProperty("namespaceGraph");
+        var namespaceNodes = namespaceGraph.GetProperty("nodes").EnumerateArray().ToArray();
+        var namespaceEdges = namespaceGraph.GetProperty("edges").EnumerateArray().ToArray();
+
+        Assert.DoesNotContain(namespaceNodes, node => node.GetProperty("label").GetString() == "<root>");
+        Assert.Single(namespaceEdges);
+        Assert.Equal("Contoso", namespaceEdges[0].GetProperty("source").GetString());
+        Assert.Equal("Acme", namespaceEdges[0].GetProperty("target").GetString());
+    }
+
+    [Fact]
+    public async Task ExportAsync_OmitsEmptyNamedNodesAndTheirEdgesFromClassView()
+    {
+        var graph = new DependencyGraph();
+        graph.Nodes.Add(new NodeMetadata("Blank", "", ElementType.Class, null));
+        graph.Nodes.Add(new NodeMetadata("A", "Acme.A", ElementType.Class, null, "Acme"));
+        graph.Nodes.Add(new NodeMetadata("B", "Acme.B", ElementType.Class, null, "Acme"));
+        graph.Edges.Add(new EdgeMetadata("Blank", "B", DependencyType.MethodParameter));
+        graph.Edges.Add(new EdgeMetadata("A", "B", DependencyType.MethodParameter));
+
+        var outputPath = Path.Combine(Path.GetTempPath(), "cyclyst-export-empty-class-node.html");
+        await new HtmlSvgExporter().ExportAsync(graph, outputPath, new ExportOptions { Level = GroupingLevel.Class });
+
+        using var payload = ReadGraphPayload(await File.ReadAllTextAsync(outputPath));
+        var classGraph = payload.RootElement.GetProperty("classGraph");
+        var classNodes = classGraph.GetProperty("nodes").EnumerateArray().ToArray();
+        var classEdges = classGraph.GetProperty("edges").EnumerateArray().ToArray();
+
+        Assert.DoesNotContain(classNodes, node => string.IsNullOrWhiteSpace(node.GetProperty("label").GetString()));
+        Assert.Single(classEdges);
+        Assert.Equal("A", classEdges[0].GetProperty("source").GetString());
+        Assert.Equal("B", classEdges[0].GetProperty("target").GetString());
+    }
+
+    private static JsonDocument ReadGraphPayload(string html)
+    {
+        const string payloadStartMarker = "const graphPayload =";
+        var payloadStartMarkerIndex = html.IndexOf(payloadStartMarker, StringComparison.Ordinal);
+        var payloadStart = html.IndexOf('\n', payloadStartMarkerIndex) + 1;
+        var payloadEnd = html.IndexOf(';', payloadStart);
+        return JsonDocument.Parse(html[payloadStart..payloadEnd].Trim());
+    }
+
+    [Fact]
     public async Task ExportAsync_IncludesInheritanceAndImplementationRelationStyles()
     {
         var graph = new DependencyGraph();

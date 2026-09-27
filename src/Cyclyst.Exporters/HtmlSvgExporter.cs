@@ -155,7 +155,15 @@ public sealed class HtmlSvgExporter : IExporter
 
     private static GraphView BuildGraphView(DependencyGraph graph)
     {
-        var classNodes = graph.Nodes
+      var visibleNodes = graph.Nodes
+        .Where(node => !string.IsNullOrWhiteSpace(node.Name))
+        .ToList();
+      var visibleNodeIds = visibleNodes.Select(node => node.Id).ToHashSet();
+      var visibleEdges = graph.Edges
+        .Where(edge => visibleNodeIds.Contains(edge.SourceId) && visibleNodeIds.Contains(edge.TargetId))
+        .ToList();
+
+      var classNodes = visibleNodes
             .Select(node => new OutputNode(
                 node.Id,
                 node.Name,
@@ -167,7 +175,7 @@ public sealed class HtmlSvgExporter : IExporter
                 node.Type == ElementType.Namespace ? "Namespace group" : node.Name))
             .ToList();
 
-        var classEdges = graph.Edges
+          var classEdges = visibleEdges
             .Select(edge => new OutputEdge(
                 BuildEdgeId(edge),
                 edge.SourceId,
@@ -183,6 +191,7 @@ public sealed class HtmlSvgExporter : IExporter
 
         var namespaceGroups = classNodes
           .GroupBy(node => node.Namespace)
+          .Where(group => !string.IsNullOrWhiteSpace(group.Key))
           .ToList();
         var namespaceGraph = new DependencyGraph();
         foreach (var group in namespaceGroups)
@@ -195,14 +204,16 @@ public sealed class HtmlSvgExporter : IExporter
             group.Key));
         }
 
-        var groupedNamespaceEdges = graph.Edges
+        var groupedNamespaceEdges = visibleEdges
             .Select(edge => new
             {
-                SourceNamespace = GetNodeNamespace(graph.Nodes.First(n => n.Id == edge.SourceId)),
-                TargetNamespace = GetNodeNamespace(graph.Nodes.First(n => n.Id == edge.TargetId)),
+            SourceNamespace = GetNodeNamespace(visibleNodes.First(n => n.Id == edge.SourceId)),
+            TargetNamespace = GetNodeNamespace(visibleNodes.First(n => n.Id == edge.TargetId)),
                 edge
             })
-            .Where(x => !string.Equals(x.SourceNamespace, x.TargetNamespace, StringComparison.OrdinalIgnoreCase))
+          .Where(x => !string.IsNullOrWhiteSpace(x.SourceNamespace) &&
+                !string.IsNullOrWhiteSpace(x.TargetNamespace) &&
+                !string.Equals(x.SourceNamespace, x.TargetNamespace, StringComparison.OrdinalIgnoreCase))
             .GroupBy(x => (x.SourceNamespace, x.TargetNamespace))
             .ToList();
 
@@ -216,6 +227,7 @@ public sealed class HtmlSvgExporter : IExporter
           }
 
           var classCycleIds = graph.Edges
+            .Where(edge => visibleNodeIds.Contains(edge.SourceId) && visibleNodeIds.Contains(edge.TargetId))
             .Select(edge => edge.SccId)
             .Where(id => id > 0)
             .Distinct()
@@ -223,7 +235,7 @@ public sealed class HtmlSvgExporter : IExporter
             .ToList();
           var cycles = classCycleIds
             .Select(id => new CycleSummary(id, $"Cycle {id}", $"Cycle {id} highlighted in the diagram.",
-                graph.Nodes.Where(node => node.SccId == id).Select(node => node.Name).ToArray()))
+                visibleNodes.Where(node => node.SccId == id).Select(node => node.Name).ToArray()))
             .ToList();
 
           var namespaceCycleIds = new Dictionary<string, int>();
